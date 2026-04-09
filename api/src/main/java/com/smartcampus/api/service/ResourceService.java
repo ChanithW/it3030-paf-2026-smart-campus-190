@@ -1,0 +1,69 @@
+package com.smartcampus.api.service;
+
+import com.smartcampus.api.dto.ResourceRequest;
+import com.smartcampus.api.enums.ResourceStatus;
+import com.smartcampus.api.exception.ResourceNotFoundException;
+import com.smartcampus.api.model.Resource;
+import com.smartcampus.api.repository.ResourceRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+
+@Service
+@RequiredArgsConstructor
+public class ResourceService {
+
+    private final ResourceRepository resourceRepository;
+
+    public List<Resource> getAllResources() {
+        return resourceRepository.findAll();
+    }
+
+    public Resource getResourceById(String id) {
+        return resourceRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Resource not found with id: " + id));
+    }
+
+    public List<Resource> getResourcesByType(String type) {
+        return resourceRepository.findByType(type);
+    }
+
+    public List<Resource> getResourcesByStatus(ResourceStatus status) {
+        return resourceRepository.findByStatus(status);
+    }
+
+    public List<Resource> getResourcesByLocation(String location) {
+        return resourceRepository.findByLocation(location);
+    }
+
+    public Resource createResource(ResourceRequest request) {
+        Resource resource = Resource.builder()
+                .name(request.getName())
+                .type(request.getType())
+                .capacity(request.getCapacity())
+                .location(request.getLocation())
+                .availabilityWindows(request.getAvailabilityWindows())
+                .status(request.getStatus())
+                .description(request.getDescription())
+                .build();
+        return resourceRepository.save(resource);
+    }
+
+    public Resource updateResource(String id, ResourceRequest request) {
+        Resource resource = getResourceById(id);
+        resource.setName(request.getName());
+        resource.setType(request.getType());
+        resource.setCapacity(request.getCapacity());
+        resource.setLocation(request.getLocation());
+        resource.setAvailabilityWindows(request.getAvailabilityWindows());
+        resource.setStatus(request.getStatus());
+        resource.setDescription(request.getDescription());
+        return resourceRepository.save(resource);
+    }
+
+    public void deleteResource(String id) {
+        Resource resource = getResourceById(id);
+        resourceRepository.delete(resource);
+    }
+}
