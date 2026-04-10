@@ -175,4 +175,8 @@ public class TicketService {
     public List<Comment> getCommentsByTicket(String ticketId) {
         return commentRepository.findByTicketId(ticketId);
     }
+
+    public Ticket saveTicket(Ticket ticket) {
+    return ticketRepository.save(ticket);
+    }
 }
