@@ -50,4 +50,14 @@ public class AuthController {
         Role role = Role.valueOf(request.get("role"));
         return ResponseEntity.ok(userService.updateUserRole(id, role));
     }
+
+    @PatchMapping("/users/preferences")
+    public ResponseEntity<User> updateNotificationPreferences(
+        @AuthenticationPrincipal OAuth2User principal,
+        @RequestBody Map<String, String> request) {
+        String email = principal.getAttribute("email");
+        User user = userService.getUserByEmail(email);
+        user.setNotificationPreferences(request.get("preferences"));
+        return ResponseEntity.ok(userService.saveUser(user));
+    }
 }

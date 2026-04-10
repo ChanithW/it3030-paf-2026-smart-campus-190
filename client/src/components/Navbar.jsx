@@ -81,12 +81,19 @@ export default function Navbar() {
             <p className="text-sm font-medium text-gray-800 leading-none">{user?.name}</p>
             <p className="text-xs text-gray-500 mt-0.5">{user?.role}</p>
           </div>
-          <button
-            onClick={logout}
-            className="ml-2 text-sm text-gray-500 hover:text-red-500 transition px-2 py-1 rounded-lg hover:bg-red-50"
-          >
-            Logout
-          </button>
+          <div className="flex items-center gap-1 ml-2">
+            <button
+              onClick={() => navigate('/preferences')}
+              className="text-sm text-gray-500 hover:text-gray-700 transition px-2 py-1 rounded-lg hover:bg-gray-50"
+              title="Notification Preferences">
+              ⚙️
+            </button>
+            <button
+              onClick={logout}
+              className="text-sm text-gray-500 hover:text-red-500 transition px-2 py-1 rounded-lg hover:bg-red-50">
+              Logout
+            </button>
+          </div>
         </div>
       </div>
     </nav>

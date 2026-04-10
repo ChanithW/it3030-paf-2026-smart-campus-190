@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import Navbar from '../components/Navbar'
 import api from '../api/axios'
+import { QRCodeSVG as QRCode } from 'qrcode.react'
 
 export default function Bookings() {
   const { user } = useAuth()
@@ -10,6 +11,7 @@ export default function Bookings() {
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [filterStatus, setFilterStatus] = useState('')
+  const [qrBooking, setQrBooking] = useState(null)
   const [form, setForm] = useState({
     resourceId: '', startTime: '', endTime: '', purpose: '', expectedAttendees: ''
   })
@@ -155,11 +157,20 @@ export default function Bookings() {
                         </button>
                       </div>
                     )}
-                    {b.status === 'APPROVED' && b.user?.email === user?.email && (
-                      <button onClick={() => handleCancel(b.id)}
-                        className="text-sm bg-gray-50 text-gray-600 px-4 py-2 rounded-xl hover:bg-gray-100 font-medium">
-                        Cancel
-                      </button>
+                    {b.status === 'APPROVED' && (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setQrBooking(b) }}
+                          className="text-sm bg-blue-50 text-blue-600 px-4 py-2 rounded-xl hover:bg-blue-100 font-medium">
+                          📱 QR Code
+                        </button>
+                        {b.user?.email === user?.email && (
+                          <button onClick={() => handleCancel(b.id)}
+                            className="text-sm bg-gray-50 text-gray-600 px-4 py-2 rounded-xl hover:bg-gray-100 font-medium">
+                            Cancel
+                          </button>
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>
@@ -220,6 +231,45 @@ export default function Bookings() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* QR Code Modal */}
+      {qrBooking && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-8 w-full max-w-sm shadow-2xl text-center">
+            <h2 className="text-xl font-bold text-gray-800 mb-1">Booking QR Code</h2>
+            <p className="text-gray-500 text-sm mb-6">Show this at check-in</p>
+
+            <div className="flex justify-center mb-6 p-4 bg-gray-50 rounded-2xl">
+              <QRCode
+                value={JSON.stringify({
+                  bookingId: qrBooking.id,
+                  resource: qrBooking.resource?.name,
+                  purpose: qrBooking.purpose,
+                  start: qrBooking.startTime,
+                  end: qrBooking.endTime,
+                  status: qrBooking.status
+                })}
+                size={200}
+                level="H"
+                includeMargin={true}
+              />
+            </div>
+
+            <div className="text-left bg-blue-50 rounded-xl p-4 mb-6">
+              <p className="text-sm font-semibold text-blue-800 mb-2">{qrBooking.resource?.name}</p>
+              <p className="text-xs text-blue-600">📋 {qrBooking.purpose}</p>
+              <p className="text-xs text-blue-600 mt-1">🕐 {new Date(qrBooking.startTime).toLocaleString()}</p>
+              <p className="text-xs text-blue-600">→ {new Date(qrBooking.endTime).toLocaleString()}</p>
+            </div>
+
+            <button
+              onClick={() => setQrBooking(null)}
+              className="w-full bg-gray-100 text-gray-700 py-3 rounded-xl hover:bg-gray-200 font-medium">
+              Close
+            </button>
           </div>
         </div>
       )}

@@ -7,6 +7,7 @@ import Bookings from './pages/Bookings'
 import Tickets from './pages/Tickets'
 import Notifications from './pages/Notifications'
 import UserManagement from './pages/UserManagement'
+import NotificationPreferences from './pages/NotificationPreferences'
 
 function App() {
   const { user, loading } = useAuth()
@@ -22,6 +23,7 @@ function App() {
       <Route path="/tickets" element={user ? <Tickets /> : <Navigate to="/login" />} />
       <Route path="/notifications" element={user ? <Notifications /> : <Navigate to="/login" />} />
       <Route path="/users" element={user?.role === 'ADMIN' ? <UserManagement /> : <Navigate to="/dashboard" />} />
+      <Route path="/preferences" element={user ? <NotificationPreferences /> : <Navigate to="/login" />} />
       <Route path="*" element={<Navigate to={user ? "/dashboard" : "/login"} />} />
     </Routes>
   )
