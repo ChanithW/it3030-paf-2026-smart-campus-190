@@ -23,7 +23,9 @@ export default function Tickets() {
 
   const fetchTickets = async () => {
     try {
-      const endpoint = user?.role === 'ADMIN' ? '/api/tickets' : '/api/tickets/my'
+      const endpoint = user?.role === 'ADMIN' || user?.role === 'TECHNICIAN'
+        ? '/api/tickets'
+        : '/api/tickets/my'
       const res = await api.get(endpoint)
       setTickets(res.data)
     } catch (err) {
@@ -86,11 +88,32 @@ export default function Tickets() {
 
   const handleStatusUpdate = async (id, status) => {
     try {
-      await api.patch(`/api/tickets/${id}/status`, { status })
-      fetchTickets()
-      if (selectedTicket?.id === id) {
-        setSelectedTicket(prev => ({ ...prev, status }))
+      let resolutionNotes = ''
+      let reason = ''
+
+      if (status === 'RESOLVED') {
+        const input = prompt('Enter resolution notes (optional):')
+        if (input === null) return
+        resolutionNotes = input || 'Resolved by admin'
       }
+
+      if (status === 'REJECTED') {
+        const input = prompt('Enter rejection reason:')
+        if (input === null) return
+        reason = input || 'Rejected by admin'
+      }
+
+      await api.patch(`/api/tickets/${id}/status`, {
+        status,
+        resolutionNotes,
+        reason
+      })
+
+      await fetchTickets()
+
+      const refreshed = await api.get(`/api/tickets/${id}`)
+      setSelectedTicket(refreshed.data)
+
     } catch (err) {
       console.error(err)
     }
@@ -117,9 +140,15 @@ export default function Tickets() {
     }
   }
 
-  const openTicket = (ticket) => {
-    setSelectedTicket(ticket)
-    fetchComments(ticket.id)
+  const openTicket = async (ticket) => {
+    try {
+      const res = await api.get(`/api/tickets/${ticket.id}`)
+      setSelectedTicket(res.data)
+      fetchComments(ticket.id)
+    } catch (err) {
+      setSelectedTicket(ticket)
+      fetchComments(ticket.id)
+    }
   }
 
   const priorityConfig = {
@@ -147,7 +176,9 @@ export default function Tickets() {
           <div>
             <h1 className="text-2xl font-bold text-gray-800">Incident Tickets</h1>
             <p className="text-gray-500 text-sm mt-1">
-              {user?.role === 'ADMIN' ? 'Manage all incident reports' : 'Your incident reports'}
+              {user?.role === 'ADMIN' ? 'Manage all incident reports' :
+               user?.role === 'TECHNICIAN' ? 'Assigned incident reports' :
+               'Your incident reports'}
             </p>
           </div>
           <button onClick={() => setShowForm(true)}
@@ -156,7 +187,6 @@ export default function Tickets() {
           </button>
         </div>
 
-        {/* Filter */}
         <div className="flex gap-2 mb-6 flex-wrap">
           {['', 'OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED', 'REJECTED'].map(s => (
             <button key={s} onClick={() => setFilterStatus(s)}
@@ -194,6 +224,9 @@ export default function Tickets() {
                       {t.attachments?.length > 0 && (
                         <p className="text-sm text-gray-400">📎 {t.attachments.length} attachment{t.attachments.length > 1 ? 's' : ''}</p>
                       )}
+                      {t.assignedTo && (
+                        <p className="text-sm text-gray-400">👷 {t.assignedTo.name}</p>
+                      )}
                     </div>
                   </div>
                   <span className="text-xs text-gray-400 ml-4">
@@ -212,7 +245,6 @@ export default function Tickets() {
         )}
       </div>
 
-      {/* New Ticket Modal */}
       {showForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl p-8 w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
@@ -239,37 +271,25 @@ export default function Tickets() {
               <input placeholder="Contact Details" value={form.contactDetails}
                 onChange={e => setForm({ ...form, contactDetails: e.target.value })}
                 className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-orange-100" />
-
-              {/* File Upload */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Attachments (up to 3 images)
                 </label>
                 <div className="border-2 border-dashed border-gray-200 rounded-xl p-4 text-center hover:border-orange-300 transition">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={handleFileChange}
-                    className="hidden"
-                    id="file-upload"
-                  />
+                  <input type="file" accept="image/*" multiple onChange={handleFileChange}
+                    className="hidden" id="file-upload" />
                   <label htmlFor="file-upload" className="cursor-pointer">
                     <p className="text-sm text-gray-500">Click to upload images</p>
                     <p className="text-xs text-gray-400 mt-1">PNG, JPG, GIF up to 10MB each</p>
                   </label>
                 </div>
-
-                {/* Image Previews */}
                 {previewUrls.length > 0 && (
                   <div className="flex gap-3 mt-3 flex-wrap">
                     {previewUrls.map((url, index) => (
                       <div key={index} className="relative">
                         <img src={url} alt={`Preview ${index + 1}`}
                           className="w-20 h-20 object-cover rounded-xl border border-gray-200" />
-                        <button
-                          type="button"
-                          onClick={() => removeFile(index)}
+                        <button type="button" onClick={() => removeFile(index)}
                           className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-600">
                           ×
                         </button>
@@ -278,7 +298,6 @@ export default function Tickets() {
                   </div>
                 )}
               </div>
-
               <div className="flex gap-3 pt-2">
                 <button type="submit" disabled={uploading}
                   className="flex-1 bg-orange-500 text-white py-3 rounded-xl hover:bg-orange-600 font-medium disabled:opacity-50">
@@ -298,7 +317,6 @@ export default function Tickets() {
         </div>
       )}
 
-      {/* Ticket Detail Modal */}
       {selectedTicket && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl p-8 w-full max-w-2xl shadow-2xl max-h-[90vh] overflow-y-auto">
@@ -321,10 +339,27 @@ export default function Tickets() {
             </div>
 
             {selectedTicket.location && (
-              <p className="text-sm text-gray-500 mb-4">📍 {selectedTicket.location}</p>
+              <p className="text-sm text-gray-500 mb-3">📍 {selectedTicket.location}</p>
             )}
 
-            {/* Attachments */}
+            {selectedTicket.assignedTo && (
+              <p className="text-sm text-gray-500 mb-3">👷 Assigned to: {selectedTicket.assignedTo.name}</p>
+            )}
+
+            {selectedTicket.resolutionNotes && (
+              <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-4">
+                <p className="text-sm font-medium text-green-700 mb-1">✅ Resolution Notes</p>
+                <p className="text-sm text-green-600">{selectedTicket.resolutionNotes}</p>
+              </div>
+            )}
+
+            {selectedTicket.rejectionReason && (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4">
+                <p className="text-sm font-medium text-red-700 mb-1">❌ Rejection Reason</p>
+                <p className="text-sm text-red-600">{selectedTicket.rejectionReason}</p>
+              </div>
+            )}
+
             {selectedTicket.attachments?.length > 0 && (
               <div className="mb-6">
                 <p className="text-sm font-medium text-gray-700 mb-2">Attachments</p>
@@ -339,9 +374,9 @@ export default function Tickets() {
               </div>
             )}
 
-            {user?.role === 'ADMIN' && (
-              <div className="flex gap-2 mb-6 flex-wrap">
-                <p className="text-xs text-gray-400 w-full font-medium">Update Status:</p>
+            {(user?.role === 'ADMIN' || user?.role === 'TECHNICIAN') && (
+              <div className="flex gap-2 mb-6 flex-wrap bg-gray-50 p-4 rounded-xl">
+                <p className="text-xs text-gray-500 w-full font-medium">Update Status:</p>
                 {['IN_PROGRESS', 'RESOLVED', 'CLOSED', 'REJECTED'].map(s => (
                   <button key={s} onClick={() => handleStatusUpdate(selectedTicket.id, s)}
                     className={`text-xs px-3 py-2 rounded-xl font-medium transition ${statusConfig[s]?.color} hover:opacity-80`}>
