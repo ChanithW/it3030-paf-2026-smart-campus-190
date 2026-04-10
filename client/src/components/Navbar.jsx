@@ -29,7 +29,7 @@ export default function Navbar() {
     { label: 'Facilities', path: '/facilities' },
     { label: 'Bookings', path: '/bookings' },
     { label: 'Tickets', path: '/tickets' },
-    ...(user?.role === 'ADMIN' ? [{ label: 'Users', path: '/users' }] : []),
+    ...(user?.role === 'ADMIN' ? [{ label: 'Users', path: '/users' }, { label: 'Verify', path: '/verify' }] : []),
   ]
 
   const isActive = (path) => location.pathname === path
