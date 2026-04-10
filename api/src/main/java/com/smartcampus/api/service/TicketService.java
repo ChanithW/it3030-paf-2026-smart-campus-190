@@ -24,6 +24,7 @@ public class TicketService {
     private final TicketRepository ticketRepository;
     private final UserRepository userRepository;
     private final CommentRepository commentRepository;
+    private final NotificationService notificationService;
 
     public List<Ticket> getAllTickets() {
         return ticketRepository.findAll();
@@ -52,12 +53,21 @@ public class TicketService {
                 .contactDetails(request.getContactDetails())
                 .status(TicketStatus.OPEN)
                 .build();
-        return ticketRepository.save(ticket);
+
+        Ticket saved = ticketRepository.save(ticket);
+
+        notificationService.createNotification(
+                user,
+                "Your incident ticket for '" + request.getCategory() + "' has been submitted successfully.",
+                "TICKET",
+                saved.getId()
+        );
+
+        return saved;
     }
 
     public Ticket updateTicketStatus(String id, StatusUpdateRequest request) {
         Ticket ticket = getTicketById(id);
-
         TicketStatus newStatus = TicketStatus.valueOf(request.getStatus());
         ticket.setStatus(newStatus);
 
@@ -73,19 +83,70 @@ public class TicketService {
             User technician = userRepository.findById(request.getAssignedToId())
                     .orElseThrow(() -> new ResourceNotFoundException("User not found"));
             ticket.setAssignedTo(technician);
+
+            notificationService.createNotification(
+                    technician,
+                    "You have been assigned to ticket: " + ticket.getCategory(),
+                    "TICKET",
+                    ticket.getId()
+            );
         }
 
-        return ticketRepository.save(ticket);
+        Ticket saved = ticketRepository.save(ticket);
+        User ticketOwner = ticket.getUser();
+
+        switch (newStatus) {
+            case IN_PROGRESS -> notificationService.createNotification(
+                    ticketOwner,
+                    "Your ticket '" + ticket.getCategory() + "' is now IN PROGRESS.",
+                    "TICKET",
+                    saved.getId()
+            );
+            case RESOLVED -> notificationService.createNotification(
+                    ticketOwner,
+                    "Your ticket '" + ticket.getCategory() + "' has been RESOLVED!",
+                    "TICKET",
+                    saved.getId()
+            );
+            case CLOSED -> notificationService.createNotification(
+                    ticketOwner,
+                    "Your ticket '" + ticket.getCategory() + "' has been CLOSED.",
+                    "TICKET",
+                    saved.getId()
+            );
+            case REJECTED -> notificationService.createNotification(
+                    ticketOwner,
+                    "Your ticket '" + ticket.getCategory() + "' has been REJECTED.",
+                    "TICKET",
+                    saved.getId()
+            );
+            default -> {}
+        }
+
+        return saved;
     }
 
     public Comment addComment(String ticketId, CommentRequest request, User user) {
         Ticket ticket = getTicketById(ticketId);
+
         Comment comment = Comment.builder()
                 .ticket(ticket)
                 .user(user)
                 .content(request.getContent())
                 .build();
-        return commentRepository.save(comment);
+
+        Comment saved = commentRepository.save(comment);
+
+        if (!ticket.getUser().getId().equals(user.getId())) {
+            notificationService.createNotification(
+                    ticket.getUser(),
+                    "New comment on your ticket '" + ticket.getCategory() + "': " + request.getContent(),
+                    "COMMENT",
+                    ticketId
+            );
+        }
+
+        return saved;
     }
 
     public Comment updateComment(String commentId, CommentRequest request, User user) {

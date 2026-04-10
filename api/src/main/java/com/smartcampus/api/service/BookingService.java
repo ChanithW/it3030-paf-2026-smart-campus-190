@@ -21,6 +21,7 @@ public class BookingService {
 
     private final BookingRepository bookingRepository;
     private final ResourceRepository resourceRepository;
+    private final NotificationService notificationService;
 
     public List<Booking> getAllBookings() {
         return bookingRepository.findAll();
@@ -60,12 +61,20 @@ public class BookingService {
                 .status(BookingStatus.PENDING)
                 .build();
 
-        return bookingRepository.save(booking);
+        Booking saved = bookingRepository.save(booking);
+
+        notificationService.createNotification(
+                user,
+                "Your booking request for " + resource.getName() + " has been submitted and is pending approval.",
+                "BOOKING",
+                saved.getId()
+        );
+
+        return saved;
     }
 
     public Booking updateBookingStatus(String id, StatusUpdateRequest request) {
         Booking booking = getBookingById(id);
-
         BookingStatus newStatus = BookingStatus.valueOf(request.getStatus());
         booking.setStatus(newStatus);
 
@@ -73,7 +82,29 @@ public class BookingService {
             booking.setRejectionReason(request.getReason());
         }
 
-        return bookingRepository.save(booking);
+        Booking saved = bookingRepository.save(booking);
+
+        String resourceName = booking.getResource().getName();
+        User bookingUser = booking.getUser();
+
+        if (newStatus == BookingStatus.APPROVED) {
+            notificationService.createNotification(
+                    bookingUser,
+                    "Your booking for " + resourceName + " has been APPROVED!",
+                    "BOOKING",
+                    saved.getId()
+            );
+        } else if (newStatus == BookingStatus.REJECTED) {
+            String reason = request.getReason() != null ? " Reason: " + request.getReason() : "";
+            notificationService.createNotification(
+                    bookingUser,
+                    "Your booking for " + resourceName + " has been REJECTED." + reason,
+                    "BOOKING",
+                    saved.getId()
+            );
+        }
+
+        return saved;
     }
 
     public Booking cancelBooking(String id, User user) {
