@@ -51,7 +51,7 @@ public class Ticket {
 
     private String rejectionReason;
 
-    @ElementCollection
+    @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "ticket_attachments", joinColumns = @JoinColumn(name = "ticket_id"))
     @Column(name = "attachment_url")
     private List<String> attachments;
