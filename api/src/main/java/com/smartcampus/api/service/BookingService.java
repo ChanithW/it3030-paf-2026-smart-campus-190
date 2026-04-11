@@ -3,6 +3,7 @@ package com.smartcampus.api.service;
 import com.smartcampus.api.dto.BookingRequest;
 import com.smartcampus.api.dto.StatusUpdateRequest;
 import com.smartcampus.api.enums.BookingStatus;
+import com.smartcampus.api.enums.Role;
 import com.smartcampus.api.exception.BookingConflictException;
 import com.smartcampus.api.exception.ResourceNotFoundException;
 import com.smartcampus.api.model.Booking;
@@ -10,6 +11,7 @@ import com.smartcampus.api.model.Resource;
 import com.smartcampus.api.model.User;
 import com.smartcampus.api.repository.BookingRepository;
 import com.smartcampus.api.repository.ResourceRepository;
+import com.smartcampus.api.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -21,6 +23,8 @@ public class BookingService {
 
     private final BookingRepository bookingRepository;
     private final ResourceRepository resourceRepository;
+    private final NotificationService notificationService;
+    private final UserRepository userRepository;
 
     public List<Booking> getAllBookings() {
         return bookingRepository.findAll();
@@ -60,12 +64,31 @@ public class BookingService {
                 .status(BookingStatus.PENDING)
                 .build();
 
-        return bookingRepository.save(booking);
+        Booking saved = bookingRepository.save(booking);
+
+        // Notify the user
+        notificationService.createNotification(
+                user,
+                "Your booking request for " + resource.getName() + " has been submitted and is pending approval.",
+                "BOOKING",
+                saved.getId()
+        );
+
+        // Notify all admins
+        userRepository.findAll().stream()
+                .filter(u -> u.getRole() == Role.ADMIN)
+                .forEach(admin -> notificationService.createNotification(
+                        admin,
+                        "New booking request from " + user.getName() + " for " + resource.getName() + " — needs your review.",
+                        "BOOKING",
+                        saved.getId()
+                ));
+
+        return saved;
     }
 
     public Booking updateBookingStatus(String id, StatusUpdateRequest request) {
         Booking booking = getBookingById(id);
-
         BookingStatus newStatus = BookingStatus.valueOf(request.getStatus());
         booking.setStatus(newStatus);
 
@@ -73,7 +96,29 @@ public class BookingService {
             booking.setRejectionReason(request.getReason());
         }
 
-        return bookingRepository.save(booking);
+        Booking saved = bookingRepository.save(booking);
+
+        String resourceName = booking.getResource().getName();
+        User bookingUser = booking.getUser();
+
+        if (newStatus == BookingStatus.APPROVED) {
+            notificationService.createNotification(
+                    bookingUser,
+                    "Your booking for " + resourceName + " has been APPROVED!",
+                    "BOOKING",
+                    saved.getId()
+            );
+        } else if (newStatus == BookingStatus.REJECTED) {
+            String reason = request.getReason() != null ? " Reason: " + request.getReason() : "";
+            notificationService.createNotification(
+                    bookingUser,
+                    "Your booking for " + resourceName + " has been REJECTED." + reason,
+                    "BOOKING",
+                    saved.getId()
+            );
+        }
+
+        return saved;
     }
 
     public Booking cancelBooking(String id, User user) {

@@ -16,8 +16,15 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/tickets")
@@ -26,6 +33,7 @@ public class TicketController {
 
     private final TicketService ticketService;
     private final UserService userService;
+    private final String uploadDir = "uploads/";
 
     @GetMapping
     public ResponseEntity<List<Ticket>> getAllTickets(
@@ -55,6 +63,57 @@ public class TicketController {
         User user = userService.getUserByEmail(principal.getAttribute("email"));
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ticketService.createTicket(request, user));
+    }
+
+    @PostMapping("/with-attachments")
+    public ResponseEntity<Ticket> createTicketWithAttachments(
+            @RequestParam("category") String category,
+            @RequestParam("description") String description,
+            @RequestParam("priority") String priority,
+            @RequestParam(value = "location", required = false) String location,
+            @RequestParam(value = "contactDetails", required = false) String contactDetails,
+            @RequestParam(value = "files", required = false) List<MultipartFile> files,
+            @AuthenticationPrincipal OAuth2User principal) throws IOException {
+
+        User user = userService.getUserByEmail(principal.getAttribute("email"));
+
+        List<String> attachmentUrls = new ArrayList<>();
+        if (files != null && !files.isEmpty()) {
+            Path uploadPath = Paths.get(uploadDir);
+            if (!Files.exists(uploadPath)) {
+                Files.createDirectories(uploadPath);
+            }
+
+            int count = 0;
+            for (MultipartFile file : files) {
+                if (file.isEmpty() || count >= 3) break;
+                String originalFilename = file.getOriginalFilename();
+                String extension = originalFilename != null
+                        ? originalFilename.substring(originalFilename.lastIndexOf('.'))
+                        : ".jpg";
+                String filename = UUID.randomUUID() + extension;
+                Path filePath = uploadPath.resolve(filename);
+                Files.write(filePath, file.getBytes());
+                attachmentUrls.add("/api/files/" + filename);
+                count++;
+            }
+        }
+
+        TicketRequest request = new TicketRequest();
+        request.setCategory(category);
+        request.setDescription(description);
+        request.setPriority(priority);
+        request.setLocation(location);
+        request.setContactDetails(contactDetails);
+
+        Ticket ticket = ticketService.createTicket(request, user);
+
+        if (!attachmentUrls.isEmpty()) {
+            ticket.setAttachments(attachmentUrls);
+            ticket = ticketService.saveTicket(ticket);
+        }
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(ticket);
     }
 
     @PatchMapping("/{id}/status")

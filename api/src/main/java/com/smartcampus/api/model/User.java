@@ -29,6 +29,9 @@ public class User {
 
     private String profilePicture;
 
+    @Column(columnDefinition = "TEXT")
+    private String notificationPreferences;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Role role;

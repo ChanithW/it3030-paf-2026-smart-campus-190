@@ -1,5 +1,6 @@
 package com.smartcampus.api.controller;
 
+import com.smartcampus.api.enums.Role;
 import com.smartcampus.api.model.User;
 import com.smartcampus.api.service.UserService;
 import lombok.RequiredArgsConstructor;
@@ -10,6 +11,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -33,12 +35,29 @@ public class AuthController {
         return ResponseEntity.ok(userService.getAllUsers());
     }
 
+    @GetMapping("/users/technicians")
+    public ResponseEntity<List<User>> getTechnicians() {
+        List<User> technicians = userService.getAllUsers().stream()
+                .filter(u -> u.getRole() == Role.TECHNICIAN)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(technicians);
+    }
+
     @PatchMapping("/users/{id}/role")
     public ResponseEntity<User> updateUserRole(
             @PathVariable String id,
             @RequestBody Map<String, String> request) {
-        com.smartcampus.api.enums.Role role =
-                com.smartcampus.api.enums.Role.valueOf(request.get("role"));
+        Role role = Role.valueOf(request.get("role"));
         return ResponseEntity.ok(userService.updateUserRole(id, role));
+    }
+
+    @PatchMapping("/users/preferences")
+    public ResponseEntity<User> updateNotificationPreferences(
+        @AuthenticationPrincipal OAuth2User principal,
+        @RequestBody Map<String, String> request) {
+        String email = principal.getAttribute("email");
+        User user = userService.getUserByEmail(email);
+        user.setNotificationPreferences(request.get("preferences"));
+        return ResponseEntity.ok(userService.saveUser(user));
     }
 }
