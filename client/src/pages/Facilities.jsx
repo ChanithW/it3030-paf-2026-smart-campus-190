@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import Navbar from '../components/Navbar'
 import api from '../api/axios'
+import { getAllResourceTypes, saveCustomResourceType } from '../constants/resourceTypes'
 
 export default function Facilities() {
   const { user } = useAuth()
@@ -9,13 +10,19 @@ export default function Facilities() {
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editingResource, setEditingResource] = useState(null)
+  const [resourceTypes, setResourceTypes] = useState([])
+  const [selectedType, setSelectedType] = useState('')
+  const [otherType, setOtherType] = useState('')
   const [filter, setFilter] = useState({ type: '', location: '', status: '' })
   const [form, setForm] = useState({
     name: '', type: '', capacity: '', location: '',
     availabilityWindows: '', status: 'ACTIVE', description: ''
   })
 
-  useEffect(() => { fetchResources() }, [])
+  useEffect(() => {
+    fetchResources()
+    setResourceTypes(getAllResourceTypes())
+  }, [])
 
   const fetchResources = async () => {
     try {
@@ -30,12 +37,28 @@ export default function Facilities() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+
     try {
-      if (editingResource) {
-        await api.put(`/api/resources/${editingResource.id}`, form)
-      } else {
-        await api.post('/api/resources', form)
+      let payload = form
+
+      if (selectedType === 'OTHER') {
+        const customType = otherType.trim()
+        if (!customType) {
+          alert('Please enter a custom resource type')
+          return
+        }
+
+        saveCustomResourceType(customType)
+        setResourceTypes(getAllResourceTypes())
+        payload = { ...form, type: customType }
       }
+
+      if (editingResource) {
+        await api.put(`/api/resources/${editingResource.id}`, payload)
+      } else {
+        await api.post('/api/resources', payload)
+      }
+
       fetchResources()
       resetForm()
     } catch (err) {
@@ -54,6 +77,17 @@ export default function Facilities() {
   }
 
   const handleEdit = (resource) => {
+    const availableTypes = getAllResourceTypes()
+    const matchedType = availableTypes.find(
+      (type) => type.toLowerCase() === (resource.type || '').toLowerCase()
+    )
+    const isKnownType = Boolean(matchedType)
+
+    if (!isKnownType && resource.type) {
+      saveCustomResourceType(resource.type)
+    }
+
+    setResourceTypes(getAllResourceTypes())
     setEditingResource(resource)
     setForm({
       name: resource.name,
@@ -64,12 +98,22 @@ export default function Facilities() {
       status: resource.status,
       description: resource.description || ''
     })
+    if (isKnownType) {
+      setSelectedType(matchedType)
+      setOtherType('')
+    } else {
+      setSelectedType('OTHER')
+      setOtherType(resource.type || '')
+    }
     setShowForm(true)
   }
 
   const resetForm = () => {
     setShowForm(false)
     setEditingResource(null)
+    setSelectedType('')
+    setOtherType('')
+    setResourceTypes(getAllResourceTypes())
     setForm({ name: '', type: '', capacity: '', location: '', availabilityWindows: '', status: 'ACTIVE', description: '' })
   }
 
@@ -89,7 +133,10 @@ export default function Facilities() {
             <p className="text-gray-500 text-sm mt-1">Manage bookable resources on campus</p>
           </div>
           {user?.role === 'ADMIN' && (
-            <button onClick={() => setShowForm(true)}
+            <button onClick={() => {
+              setResourceTypes(getAllResourceTypes())
+              setShowForm(true)
+            }}
               className="bg-blue-600 text-white px-5 py-2.5 rounded-xl hover:bg-blue-700 text-sm font-medium shadow-sm">
               + Add Resource
             </button>
@@ -179,9 +226,33 @@ export default function Facilities() {
               <input required placeholder="Resource Name" value={form.name}
                 onChange={e => setForm({ ...form, name: e.target.value })}
                 className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-100" />
-              <input required placeholder="Type (e.g. Lab, Room, Equipment)" value={form.type}
-                onChange={e => setForm({ ...form, type: e.target.value })}
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-100" />
+              <select required value={selectedType}
+                onChange={e => {
+                  const value = e.target.value
+                  setSelectedType(value)
+                  if (value === 'OTHER') {
+                    setForm({ ...form, type: otherType.trim() })
+                  } else {
+                    setOtherType('')
+                    setForm({ ...form, type: value })
+                  }
+                }}
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-100">
+                <option value="">Select Type</option>
+                {resourceTypes.map((type) => (
+                  <option key={type} value={type}>{type}</option>
+                ))}
+                <option value="OTHER">Other</option>
+              </select>
+              {selectedType === 'OTHER' && (
+                <input required placeholder="Enter resource type" value={otherType}
+                  onChange={e => {
+                    const value = e.target.value
+                    setOtherType(value)
+                    setForm({ ...form, type: value.trim() })
+                  }}
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-100" />
+              )}
               <div className="grid grid-cols-2 gap-4">
                 <input placeholder="Capacity" type="number" value={form.capacity}
                   onChange={e => setForm({ ...form, capacity: e.target.value })}
