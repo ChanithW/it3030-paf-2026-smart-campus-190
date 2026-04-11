@@ -3,6 +3,7 @@ package com.smartcampus.api.service;
 import com.smartcampus.api.dto.CommentRequest;
 import com.smartcampus.api.dto.StatusUpdateRequest;
 import com.smartcampus.api.dto.TicketRequest;
+import com.smartcampus.api.enums.Role;
 import com.smartcampus.api.enums.TicketStatus;
 import com.smartcampus.api.exception.ResourceNotFoundException;
 import com.smartcampus.api.exception.UnauthorizedException;
@@ -56,12 +57,23 @@ public class TicketService {
 
         Ticket saved = ticketRepository.save(ticket);
 
+        // Notify the user
         notificationService.createNotification(
                 user,
                 "Your incident ticket for '" + request.getCategory() + "' has been submitted successfully.",
                 "TICKET",
                 saved.getId()
         );
+
+        // Notify all admins
+        userRepository.findAll().stream()
+                .filter(u -> u.getRole() == Role.ADMIN)
+                .forEach(admin -> notificationService.createNotification(
+                        admin,
+                        "New incident ticket submitted by " + user.getName() + " — Category: " + request.getCategory() + ". Needs your review.",
+                        "TICKET",
+                        saved.getId()
+                ));
 
         return saved;
     }
@@ -177,6 +189,6 @@ public class TicketService {
     }
 
     public Ticket saveTicket(Ticket ticket) {
-    return ticketRepository.save(ticket);
+        return ticketRepository.save(ticket);
     }
 }

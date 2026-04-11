@@ -123,10 +123,8 @@ export default function Dashboard() {
                         <span className="font-medium text-gray-800">{item.value}</span>
                       </div>
                       <div className="w-full bg-gray-100 rounded-full h-2">
-                        <div
-                          className={`${item.color} h-2 rounded-full transition-all duration-500`}
-                          style={{ width: item.total > 0 ? `${(item.value / item.total) * 100}%` : '0%' }}
-                        />
+                        <div className={`${item.color} h-2 rounded-full transition-all duration-500`}
+                          style={{ width: item.total > 0 ? `${(item.value / item.total) * 100}%` : '0%' }} />
                       </div>
                     </div>
                   ))}
@@ -149,14 +147,63 @@ export default function Dashboard() {
                         <span className="font-medium text-gray-800">{item.value}</span>
                       </div>
                       <div className="w-full bg-gray-100 rounded-full h-2">
-                        <div
-                          className={`${item.color} h-2 rounded-full transition-all duration-500`}
-                          style={{ width: item.total > 0 ? `${(item.value / item.total) * 100}%` : '0%' }}
-                        />
+                        <div className={`${item.color} h-2 rounded-full transition-all duration-500`}
+                          style={{ width: item.total > 0 ? `${(item.value / item.total) * 100}%` : '0%' }} />
                       </div>
                     </div>
                   ))}
                 </div>
+              </div>
+
+              {/* Top Resources */}
+              <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+                <h3 className="font-bold text-gray-700 mb-4">🏆 Top Resources</h3>
+                {analytics.topResources?.length > 0 ? (
+                  <div className="space-y-3">
+                    {analytics.topResources.map((r, index) => (
+                      <div key={r.name} className="flex items-center gap-3">
+                        <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white ${
+                          index === 0 ? 'bg-yellow-500' : index === 1 ? 'bg-gray-400' : index === 2 ? 'bg-amber-600' : 'bg-blue-400'
+                        }`}>{index + 1}</span>
+                        <div className="flex-1">
+                          <div className="flex justify-between text-sm mb-1">
+                            <span className="text-gray-700 font-medium">{r.name}</span>
+                            <span className="text-gray-500">{r.count} bookings</span>
+                          </div>
+                          <div className="w-full bg-gray-100 rounded-full h-1.5">
+                            <div className="bg-blue-400 h-1.5 rounded-full"
+                              style={{ width: `${(r.count / analytics.topResources[0].count) * 100}%` }} />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-400 text-sm text-center py-4">No booking data yet</p>
+                )}
+              </div>
+
+              {/* Peak Booking Hours */}
+              <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+                <h3 className="font-bold text-gray-700 mb-4">⏰ Peak Booking Hours</h3>
+                {analytics.peakHours?.length > 0 ? (
+                  <div className="space-y-3">
+                    {analytics.peakHours.map(h => (
+                      <div key={h.hour}>
+                        <div className="flex justify-between text-sm mb-1">
+                          <span className="text-gray-700 font-medium">{h.hour}</span>
+                          <span className="text-gray-500">{h.count} bookings</span>
+                        </div>
+                        <div className="w-full bg-gray-100 rounded-full h-2">
+                          <div className="bg-purple-400 h-2 rounded-full"
+                            style={{ width: `${(h.count / analytics.peakHours[0].count) * 100}%` }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-400 text-sm text-center py-4">No booking data yet</p>
+                )}
               </div>
 
               {/* Summary Cards */}
