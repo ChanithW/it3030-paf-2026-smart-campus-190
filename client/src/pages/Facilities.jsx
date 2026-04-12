@@ -14,6 +14,7 @@ export default function Facilities() {
   const [selectedType, setSelectedType] = useState('')
   const [otherType, setOtherType] = useState('')
   const [filter, setFilter] = useState({ type: '', location: '', status: '' })
+  const [formError, setFormError] = useState('')
   const [form, setForm] = useState({
     name: '', type: '', capacity: '', location: '',
     availabilityWindows: '', status: 'ACTIVE', description: ''
@@ -37,6 +38,13 @@ export default function Facilities() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    setFormError('')
+
+    // Validate capacity
+    if (form.capacity !== '' && (isNaN(form.capacity) || parseFloat(form.capacity) < 0)) {
+      setFormError('Capacity cannot be a negative number')
+      return
+    }
 
     try {
       let payload = form
@@ -44,7 +52,7 @@ export default function Facilities() {
       if (selectedType === 'OTHER') {
         const customType = otherType.trim()
         if (!customType) {
-          alert('Please enter a custom resource type')
+          setFormError('Please enter a custom resource type')
           return
         }
 
@@ -63,6 +71,7 @@ export default function Facilities() {
       resetForm()
     } catch (err) {
       console.error(err)
+      setFormError('Failed to save resource. Please try again.')
     }
   }
 
@@ -113,6 +122,7 @@ export default function Facilities() {
     setEditingResource(null)
     setSelectedType('')
     setOtherType('')
+    setFormError('')
     setResourceTypes(getAllResourceTypes())
     setForm({ name: '', type: '', capacity: '', location: '', availabilityWindows: '', status: 'ACTIVE', description: '' })
   }
@@ -222,6 +232,11 @@ export default function Facilities() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl p-8 w-full max-w-lg shadow-2xl">
             <h2 className="text-xl font-bold mb-6 text-gray-800">{editingResource ? 'Edit Resource' : 'Add New Resource'}</h2>
+            {formError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                {formError}
+              </div>
+            )}
             <form onSubmit={handleSubmit} className="space-y-4">
               <input required placeholder="Resource Name" value={form.name}
                 onChange={e => setForm({ ...form, name: e.target.value })}
@@ -254,7 +269,7 @@ export default function Facilities() {
                   className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-100" />
               )}
               <div className="grid grid-cols-2 gap-4">
-                <input placeholder="Capacity" type="number" value={form.capacity}
+                <input placeholder="Capacity" type="number" min="0" value={form.capacity}
                   onChange={e => setForm({ ...form, capacity: e.target.value })}
                   className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-100" />
                 <select value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}
