@@ -3,7 +3,6 @@ import { useAuth } from '../context/AuthContext'
 import Navbar from '../components/Navbar'
 import api from '../api/axios'
 import { QRCodeSVG as QRCode } from 'qrcode.react'
-import { getAllResourceTypes } from '../constants/resourceTypes'
 
 export default function Bookings() {
   const { user } = useAuth()
@@ -13,8 +12,6 @@ export default function Bookings() {
   const [showForm, setShowForm] = useState(false)
   const [filterStatus, setFilterStatus] = useState('')
   const [qrBooking, setQrBooking] = useState(null)
-  const [resourceTypes, setResourceTypes] = useState([])
-  const [selectedResourceType, setSelectedResourceType] = useState('')
   const [form, setForm] = useState({
     resourceId: '', startTime: '', endTime: '', purpose: '', expectedAttendees: ''
   })
@@ -22,7 +19,6 @@ export default function Bookings() {
   useEffect(() => {
     fetchBookings()
     fetchResources()
-    setResourceTypes(getAllResourceTypes())
   }, [])
 
   const fetchBookings = async () => {
@@ -52,7 +48,6 @@ export default function Bookings() {
       await api.post('/api/bookings', form)
       fetchBookings()
       setShowForm(false)
-      setSelectedResourceType('')
       setForm({ resourceId: '', startTime: '', endTime: '', purpose: '', expectedAttendees: '' })
     } catch (err) {
       alert(err.response?.data?.message || 'Booking failed — time slot may be taken!')
@@ -85,11 +80,18 @@ export default function Bookings() {
     CANCELLED: { color: 'bg-gray-100 text-gray-500', label: 'Cancelled' }
   }
 
-  const typeFilteredResources = selectedResourceType
-    ? resources.filter((r) => (r.type || '').toLowerCase() === selectedResourceType.toLowerCase())
-    : resources
-
   const filtered = bookings.filter(b => !filterStatus || b.status === filterStatus)
+
+  const getMinDateTime = () => {
+    const now = new Date()
+    now.setMinutes(now.getMinutes() + 1) // Round up to next minute
+    const year = now.getFullYear()
+    const month = String(now.getMonth() + 1).padStart(2, '0')
+    const day = String(now.getDate()).padStart(2, '0')
+    const hours = String(now.getHours()).padStart(2, '0')
+    const minutes = String(now.getMinutes()).padStart(2, '0')
+    return `${year}-${month}-${day}T${hours}:${minutes}`
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -102,12 +104,7 @@ export default function Bookings() {
               {user?.role === 'ADMIN' ? 'Manage all booking requests' : 'Your booking requests'}
             </p>
           </div>
-          <button onClick={() => {
-            setResourceTypes(getAllResourceTypes())
-            setSelectedResourceType('')
-            setForm({ resourceId: '', startTime: '', endTime: '', purpose: '', expectedAttendees: '' })
-            setShowForm(true)
-          }}
+          <button onClick={() => setShowForm(true)}
             className="bg-green-600 text-white px-5 py-2.5 rounded-xl hover:bg-green-700 text-sm font-medium shadow-sm">
             + New Booking
           </button>
@@ -206,22 +203,11 @@ export default function Bookings() {
           <div className="bg-white rounded-2xl p-8 w-full max-w-lg shadow-2xl">
             <h2 className="text-xl font-bold mb-6 text-gray-800">New Booking Request</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <select value={selectedResourceType}
-                onChange={e => {
-                  setSelectedResourceType(e.target.value)
-                  setForm({ ...form, resourceId: '' })
-                }}
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-100">
-                <option value="">Select Resource Type</option>
-                {resourceTypes.map((type) => (
-                  <option key={type} value={type}>{type}</option>
-                ))}
-              </select>
               <select required value={form.resourceId}
                 onChange={e => setForm({ ...form, resourceId: e.target.value })}
                 className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-100">
                 <option value="">Select Resource</option>
-                {typeFilteredResources.map(r => (
+                {resources.map(r => (
                   <option key={r.id} value={r.id}>{r.name} — {r.location}</option>
                 ))}
               </select>
@@ -230,12 +216,14 @@ export default function Bookings() {
                   <label className="text-xs text-gray-500 font-medium">Start Time</label>
                   <input required type="datetime-local" value={form.startTime}
                     onChange={e => setForm({ ...form, startTime: e.target.value })}
+                    min={getMinDateTime()}
                     className="w-full border border-gray-200 rounded-xl px-4 py-3 mt-1 focus:outline-none focus:ring-2 focus:ring-green-100" />
                 </div>
                 <div>
                   <label className="text-xs text-gray-500 font-medium">End Time</label>
                   <input required type="datetime-local" value={form.endTime}
                     onChange={e => setForm({ ...form, endTime: e.target.value })}
+                    min={getMinDateTime()}
                     className="w-full border border-gray-200 rounded-xl px-4 py-3 mt-1 focus:outline-none focus:ring-2 focus:ring-green-100" />
                 </div>
               </div>
@@ -250,11 +238,7 @@ export default function Bookings() {
                   className="flex-1 bg-green-600 text-white py-3 rounded-xl hover:bg-green-700 font-medium">
                   Submit Request
                 </button>
-                <button type="button" onClick={() => {
-                  setShowForm(false)
-                  setSelectedResourceType('')
-                  setForm({ resourceId: '', startTime: '', endTime: '', purpose: '', expectedAttendees: '' })
-                }}
+                <button type="button" onClick={() => setShowForm(false)}
                   className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl hover:bg-gray-200 font-medium">
                   Cancel
                 </button>
