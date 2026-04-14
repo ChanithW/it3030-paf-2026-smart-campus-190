@@ -48,22 +48,59 @@ export default function Facilities() {
     e.preventDefault()
     setFormError('')
 
-    // Validate capacity
-    if (form.capacity !== '' && (isNaN(form.capacity) || parseFloat(form.capacity) < 0)) {
-      setFormError('Capacity cannot be a negative number')
+    // Validate required fields
+    if (!form.name.trim()) {
+      setFormError('Resource name is required')
+      return
+    }
+
+    if (!selectedType || selectedType === '') {
+      setFormError('Resource type is required')
+      return
+    }
+
+    if (selectedType === 'OTHER' && !otherType.trim()) {
+      setFormError('Please enter a custom resource type')
+      return
+    }
+
+    if (!form.capacity || form.capacity === '') {
+      setFormError('Capacity is required')
+      return
+    }
+
+    // Validate capacity is a positive number
+    if (isNaN(form.capacity) || parseFloat(form.capacity) < 0) {
+      setFormError('Capacity must be a valid positive number')
+      return
+    }
+
+    if (!form.status || form.status === '') {
+      setFormError('Status is required')
+      return
+    }
+
+    if (!selectedLocation || selectedLocation === '') {
+      setFormError('Location is required')
+      return
+    }
+
+    if (selectedLocation === 'OTHER' && !otherLocation.trim()) {
+      setFormError('Please enter a custom location')
+      return
+    }
+
+    if (!form.availabilityWindows.trim()) {
+      setFormError('Availability window is required')
       return
     }
 
     try {
       let payload = form
 
+      // Handle custom location
       if (selectedLocation === 'OTHER') {
         const customLocation = otherLocation.trim()
-        if (!customLocation) {
-          setFormError('Please enter a custom location')
-          return
-        }
-
         saveCustomResourceLocation(customLocation)
         setResourceLocations(getAllResourceLocations())
         payload = { ...payload, location: customLocation }
@@ -71,16 +108,12 @@ export default function Facilities() {
         payload = { ...payload, location: selectedLocation }
       }
 
+      // Handle custom type
       if (selectedType === 'OTHER') {
         const customType = otherType.trim()
-        if (!customType) {
-          setFormError('Please enter a custom resource type')
-          return
-        }
-
         saveCustomResourceType(customType)
         setResourceTypes(getAllResourceTypes())
-        payload = { ...form, type: customType }
+        payload = { ...payload, type: customType }
       }
 
       if (editingResource) {
@@ -313,11 +346,12 @@ export default function Facilities() {
                   className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-100" />
               )}
               <div className="grid grid-cols-2 gap-4">
-                <input placeholder="Capacity" type="number" min="0" value={form.capacity}
+                <input required placeholder="Capacity" type="number" min="0" value={form.capacity}
                   onChange={e => setForm({ ...form, capacity: e.target.value })}
                   className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-100" />
-                <select value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}
+                <select required value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}
                   className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-100">
+                  <option value="">Select Status</option>
                   <option value="ACTIVE">Active</option>
                   <option value="OUT_OF_SERVICE">Out of Service</option>
                 </select>
@@ -349,7 +383,7 @@ export default function Facilities() {
                   }}
                   className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-100" />
               )}
-              <input placeholder="Availability (e.g. Mon-Fri 8am-6pm)" value={form.availabilityWindows}
+              <input required placeholder="Availability (e.g. Mon-Fri 8am-6pm)" value={form.availabilityWindows}
                 onChange={e => setForm({ ...form, availabilityWindows: e.target.value })}
                 className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-100" />
               <textarea placeholder="Description" value={form.description}
