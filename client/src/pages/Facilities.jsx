@@ -3,6 +3,10 @@ import { useAuth } from '../context/AuthContext'
 import Navbar from '../components/Navbar'
 import api from '../api/axios'
 import { getAllResourceTypes, saveCustomResourceType } from '../constants/resourceTypes'
+import {
+  getAllResourceLocations,
+  saveCustomResourceLocation
+} from '../constants/resourceLocations'
 
 export default function Facilities() {
   const { user } = useAuth()
@@ -11,8 +15,11 @@ export default function Facilities() {
   const [showForm, setShowForm] = useState(false)
   const [editingResource, setEditingResource] = useState(null)
   const [resourceTypes, setResourceTypes] = useState([])
+  const [resourceLocations, setResourceLocations] = useState([])
   const [selectedType, setSelectedType] = useState('')
   const [otherType, setOtherType] = useState('')
+  const [selectedLocation, setSelectedLocation] = useState('')
+  const [otherLocation, setOtherLocation] = useState('')
   const [filter, setFilter] = useState({ type: '', location: '', status: '' })
   const [formError, setFormError] = useState('')
   const [form, setForm] = useState({
@@ -23,6 +30,7 @@ export default function Facilities() {
   useEffect(() => {
     fetchResources()
     setResourceTypes(getAllResourceTypes())
+    setResourceLocations(getAllResourceLocations())
   }, [])
 
   const fetchResources = async () => {
@@ -48,6 +56,20 @@ export default function Facilities() {
 
     try {
       let payload = form
+
+      if (selectedLocation === 'OTHER') {
+        const customLocation = otherLocation.trim()
+        if (!customLocation) {
+          setFormError('Please enter a custom location')
+          return
+        }
+
+        saveCustomResourceLocation(customLocation)
+        setResourceLocations(getAllResourceLocations())
+        payload = { ...payload, location: customLocation }
+      } else {
+        payload = { ...payload, location: selectedLocation }
+      }
 
       if (selectedType === 'OTHER') {
         const customType = otherType.trim()
@@ -91,12 +113,22 @@ export default function Facilities() {
       (type) => type.toLowerCase() === (resource.type || '').toLowerCase()
     )
     const isKnownType = Boolean(matchedType)
+    const availableLocations = getAllResourceLocations()
+    const matchedLocation = availableLocations.find(
+      (location) => location.toLowerCase() === (resource.location || '').toLowerCase()
+    )
+    const isKnownLocation = Boolean(matchedLocation)
 
     if (!isKnownType && resource.type) {
       saveCustomResourceType(resource.type)
     }
 
+    if (!isKnownLocation && resource.location) {
+      saveCustomResourceLocation(resource.location)
+    }
+
     setResourceTypes(getAllResourceTypes())
+    setResourceLocations(getAllResourceLocations())
     setEditingResource(resource)
     setForm({
       name: resource.name,
@@ -114,6 +146,14 @@ export default function Facilities() {
       setSelectedType('OTHER')
       setOtherType(resource.type || '')
     }
+
+    if (isKnownLocation) {
+      setSelectedLocation(matchedLocation)
+      setOtherLocation('')
+    } else {
+      setSelectedLocation('OTHER')
+      setOtherLocation(resource.location || '')
+    }
     setShowForm(true)
   }
 
@@ -122,8 +162,11 @@ export default function Facilities() {
     setEditingResource(null)
     setSelectedType('')
     setOtherType('')
+    setSelectedLocation('')
+    setOtherLocation('')
     setFormError('')
     setResourceTypes(getAllResourceTypes())
+    setResourceLocations(getAllResourceLocations())
     setForm({ name: '', type: '', capacity: '', location: '', availabilityWindows: '', status: 'ACTIVE', description: '' })
   }
 
@@ -145,6 +188,7 @@ export default function Facilities() {
           {user?.role === 'ADMIN' && (
             <button onClick={() => {
               setResourceTypes(getAllResourceTypes())
+              setResourceLocations(getAllResourceLocations())
               setShowForm(true)
             }}
               className="bg-blue-600 text-white px-5 py-2.5 rounded-xl hover:bg-blue-700 text-sm font-medium shadow-sm">
@@ -278,9 +322,33 @@ export default function Facilities() {
                   <option value="OUT_OF_SERVICE">Out of Service</option>
                 </select>
               </div>
-              <input required placeholder="Location" value={form.location}
-                onChange={e => setForm({ ...form, location: e.target.value })}
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-100" />
+              <select required value={selectedLocation}
+                onChange={e => {
+                  const value = e.target.value
+                  setSelectedLocation(value)
+                  if (value === 'OTHER') {
+                    setForm({ ...form, location: otherLocation.trim() })
+                  } else {
+                    setOtherLocation('')
+                    setForm({ ...form, location: value })
+                  }
+                }}
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-100">
+                <option value="">Select Location</option>
+                {resourceLocations.map((location) => (
+                  <option key={location} value={location}>{location}</option>
+                ))}
+                <option value="OTHER">Other</option>
+              </select>
+              {selectedLocation === 'OTHER' && (
+                <input required placeholder="Enter location (e.g. Block A 7th Floor)" value={otherLocation}
+                  onChange={e => {
+                    const value = e.target.value
+                    setOtherLocation(value)
+                    setForm({ ...form, location: value.trim() })
+                  }}
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-100" />
+              )}
               <input placeholder="Availability (e.g. Mon-Fri 8am-6pm)" value={form.availabilityWindows}
                 onChange={e => setForm({ ...form, availabilityWindows: e.target.value })}
                 className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-100" />
