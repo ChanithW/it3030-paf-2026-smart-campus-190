@@ -26,6 +26,42 @@ export default function Facilities() {
     name: '', type: '', capacity: '', location: '',
     availabilityWindows: '', status: 'ACTIVE', description: ''
   })
+  const [availabilityTemplate, setAvailabilityTemplate] = useState({
+    days: '', fromTime: '', toTime: ''
+  })
+  const availabilityDayOptions = [
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+    'Sunday',
+    'Mon-Fri',
+    'Mon-Sat',
+    'Weekend',
+    'All Week'
+  ]
+
+  const formatAvailability = ({ days, fromTime, toTime }) => `${days.trim()} | ${fromTime} to ${toTime}`
+
+  const parseAvailability = (availability = '') => {
+    const [daysPart, timePart] = availability.split('|')
+    if (!daysPart || !timePart) {
+      return { days: '', fromTime: '', toTime: '' }
+    }
+
+    const [fromPart, toPart] = timePart.trim().split(/\s+to\s+/i)
+    if (!fromPart || !toPart) {
+      return { days: '', fromTime: '', toTime: '' }
+    }
+
+    return {
+      days: daysPart.trim(),
+      fromTime: fromPart.trim(),
+      toTime: toPart.trim()
+    }
+  }
 
   useEffect(() => {
     fetchResources()
@@ -90,13 +126,21 @@ export default function Facilities() {
       return
     }
 
-    if (!form.availabilityWindows.trim()) {
-      setFormError('Availability window is required')
+    if (!availabilityTemplate.days.trim() || !availabilityTemplate.fromTime || !availabilityTemplate.toTime) {
+      setFormError('Availability days and time range are required')
+      return
+    }
+
+    if (availabilityTemplate.fromTime >= availabilityTemplate.toTime) {
+      setFormError('Availability end time must be later than start time')
       return
     }
 
     try {
-      let payload = form
+      let payload = {
+        ...form,
+        availabilityWindows: formatAvailability(availabilityTemplate)
+      }
 
       // Handle custom location
       if (selectedLocation === 'OTHER') {
@@ -163,6 +207,7 @@ export default function Facilities() {
     setResourceTypes(getAllResourceTypes())
     setResourceLocations(getAllResourceLocations())
     setEditingResource(resource)
+    setAvailabilityTemplate(parseAvailability(resource.availabilityWindows || ''))
     setForm({
       name: resource.name,
       type: resource.type,
@@ -197,6 +242,7 @@ export default function Facilities() {
     setOtherType('')
     setSelectedLocation('')
     setOtherLocation('')
+    setAvailabilityTemplate({ days: '', fromTime: '', toTime: '' })
     setFormError('')
     setResourceTypes(getAllResourceTypes())
     setResourceLocations(getAllResourceLocations())
@@ -223,6 +269,7 @@ export default function Facilities() {
             <button onClick={() => {
               setResourceTypes(getAllResourceTypes())
               setResourceLocations(getAllResourceLocations())
+              setAvailabilityTemplate({ days: '', fromTime: '', toTime: '' })
               setShowForm(true)
             }}
               className="bg-blue-600 text-white px-5 py-2.5 rounded-xl hover:bg-blue-700 text-sm font-medium shadow-sm">
@@ -387,9 +434,25 @@ export default function Facilities() {
                   }}
                   className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-100" />
               )}
-              <input required placeholder="Availability (e.g. Mon-Fri 8am-6pm)" value={form.availabilityWindows}
-                onChange={e => setForm({ ...form, availabilityWindows: e.target.value })}
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-100" />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <select required value={availabilityTemplate.days}
+                  onChange={e => setAvailabilityTemplate({ ...availabilityTemplate, days: e.target.value })}
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-100">
+                  <option value="">Select days</option>
+                  {availabilityDayOptions.map((dayOption) => (
+                    <option key={dayOption} value={dayOption}>{dayOption}</option>
+                  ))}
+                  {availabilityTemplate.days && !availabilityDayOptions.includes(availabilityTemplate.days) && (
+                    <option value={availabilityTemplate.days}>{availabilityTemplate.days}</option>
+                  )}
+                </select>
+                <input required type="time" value={availabilityTemplate.fromTime}
+                  onChange={e => setAvailabilityTemplate({ ...availabilityTemplate, fromTime: e.target.value })}
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-100" />
+                <input required type="time" value={availabilityTemplate.toTime}
+                  onChange={e => setAvailabilityTemplate({ ...availabilityTemplate, toTime: e.target.value })}
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-100" />
+              </div>
               <textarea placeholder="Description" value={form.description}
                 onChange={e => setForm({ ...form, description: e.target.value })}
                 className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-100" rows={3} />
