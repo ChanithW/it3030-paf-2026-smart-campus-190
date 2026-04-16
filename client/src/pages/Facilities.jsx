@@ -20,7 +20,7 @@ export default function Facilities() {
   const [otherType, setOtherType] = useState('')
   const [selectedLocation, setSelectedLocation] = useState('')
   const [otherLocation, setOtherLocation] = useState('')
-  const [filter, setFilter] = useState({ type: '', location: '', status: '' })
+  const [filter, setFilter] = useState({ type: '', location: '', capacity: '', status: '' })
   const [formError, setFormError] = useState('')
   const [form, setForm] = useState({
     name: '', type: '', capacity: '', location: '',
@@ -206,6 +206,7 @@ export default function Facilities() {
   const filtered = resources.filter(r =>
     (!filter.type || r.type.toLowerCase().includes(filter.type.toLowerCase())) &&
     (!filter.location || r.location.toLowerCase().includes(filter.location.toLowerCase())) &&
+    (!filter.capacity || String(r.capacity ?? '').toLowerCase().includes(filter.capacity.toLowerCase())) &&
     (!filter.status || r.status === filter.status)
   )
 
@@ -237,6 +238,9 @@ export default function Facilities() {
             className="border border-gray-200 rounded-xl px-4 py-2 text-sm flex-1 min-w-32 focus:outline-none focus:ring-2 focus:ring-blue-100" />
           <input placeholder="Filter by location..." value={filter.location}
             onChange={e => setFilter({ ...filter, location: e.target.value })}
+            className="border border-gray-200 rounded-xl px-4 py-2 text-sm flex-1 min-w-32 focus:outline-none focus:ring-2 focus:ring-blue-100" />
+          <input placeholder="Filter by capacity..." value={filter.capacity}
+            onChange={e => setFilter({ ...filter, capacity: e.target.value })}
             className="border border-gray-200 rounded-xl px-4 py-2 text-sm flex-1 min-w-32 focus:outline-none focus:ring-2 focus:ring-blue-100" />
           <select value={filter.status} onChange={e => setFilter({ ...filter, status: e.target.value })}
             className="border border-gray-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100">
