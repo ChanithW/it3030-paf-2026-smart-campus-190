@@ -173,6 +173,9 @@ export default function Bookings() {
                     {b.createdAt && (
                       <p className="text-xs text-gray-400 mt-2">📅 Created: {new Date(b.createdAt).toLocaleString()}</p>
                     )}
+                    {user?.role === 'ADMIN' && b.user && (
+                      <p className="text-xs text-gray-400 mt-1">👤 Booked by: {b.user.name} ({b.user.email})</p>
+                    )}
                     {b.rejectionReason && (
                       <p className="text-sm text-red-500 mt-2 bg-red-50 px-3 py-2 rounded-lg">
                         ❌ {b.rejectionReason}
