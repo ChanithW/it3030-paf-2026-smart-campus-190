@@ -234,15 +234,20 @@ export default function Bookings() {
             )}
             
             <form onSubmit={handleSubmit} className="space-y-4">
-              <select required value={form.resourceId}
-                onChange={e => setForm({ ...form, resourceId: e.target.value })}
-                disabled={submitting}
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-100 disabled:bg-gray-100">
-                <option value="">Select Resource</option>
-                {resources.map(r => (
-                  <option key={r.id} value={r.id}>{r.name} — {r.location}</option>
-                ))}
-              </select>
+              <div>
+                <label className="text-xs text-gray-500 font-medium">Resource</label>
+                <select required value={form.resourceId}
+                  onChange={e => setForm({ ...form, resourceId: e.target.value })}
+                  disabled={submitting}
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 mt-1 focus:outline-none focus:ring-2 focus:ring-green-100 disabled:bg-gray-100">
+                  <option value="">Select Resource</option>
+                  {resources.map(r => (
+                    <option key={r.id} value={r.id}>
+                      {r.name} — {r.location} {r.capacity ? `(Capacity: ${r.capacity})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs text-gray-500 font-medium">Start Time</label>
