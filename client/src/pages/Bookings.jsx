@@ -98,10 +98,10 @@ export default function Bookings() {
   }
 
   const statusConfig = {
-    PENDING: { color: 'bg-yellow-100 text-yellow-700', label: 'Pending' },
-    APPROVED: { color: 'bg-green-100 text-green-700', label: 'Approved' },
-    REJECTED: { color: 'bg-red-100 text-red-700', label: 'Rejected' },
-    CANCELLED: { color: 'bg-gray-100 text-gray-500', label: 'Cancelled' }
+    PENDING: { color: 'bg-yellow-100 text-yellow-700', label: 'Pending', description: 'Waiting for admin approval' },
+    APPROVED: { color: 'bg-green-100 text-green-700', label: 'Approved', description: 'Booking has been confirmed' },
+    REJECTED: { color: 'bg-red-100 text-red-700', label: 'Rejected', description: 'Booking was declined' },
+    CANCELLED: { color: 'bg-gray-100 text-gray-500', label: 'Cancelled', description: 'User cancelled the booking' }
   }
 
   const filtered = bookings.filter(b => !filterStatus || b.status === filterStatus)
@@ -158,7 +158,9 @@ export default function Bookings() {
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
                       <h3 className="font-bold text-gray-800 text-lg">{b.resource?.name}</h3>
-                      <span className={`text-xs px-3 py-1 rounded-full font-medium ${statusConfig[b.status]?.color}`}>
+                      <span 
+                        title={statusConfig[b.status]?.description}
+                        className={`text-xs px-3 py-1 rounded-full font-medium cursor-help ${statusConfig[b.status]?.color}`}>
                         {statusConfig[b.status]?.label}
                       </span>
                     </div>
