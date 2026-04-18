@@ -15,6 +15,9 @@ export default function Bookings() {
   const [form, setForm] = useState({
     resourceId: '', startTime: '', endTime: '', purpose: '', expectedAttendees: ''
   })
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
+  const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
     fetchBookings()
@@ -44,13 +47,34 @@ export default function Bookings() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    setError('')
+    setSubmitting(true)
     try {
       await api.post('/api/bookings', form)
+      setSuccess('Booking request submitted successfully! ✓')
       fetchBookings()
       setShowForm(false)
       setForm({ resourceId: '', startTime: '', endTime: '', purpose: '', expectedAttendees: '' })
+      setTimeout(() => setSuccess(''), 3000)
     } catch (err) {
-      alert(err.response?.data?.message || 'Booking failed — time slot may be taken!')
+      let errorMsg = 'Booking failed'
+      
+      // Check for validation errors map from backend
+      if (err.response?.data?.errors && typeof err.response.data.errors === 'object') {
+        // Get first error message from the errors object
+        const errorValues = Object.values(err.response.data.errors)
+        if (errorValues.length > 0) {
+          errorMsg = errorValues[0]
+        }
+      } else if (err.response?.data?.message) {
+        errorMsg = err.response.data.message
+      } else if (err.response?.data?.error) {
+        errorMsg = err.response.data.error
+      }
+      
+      setError(errorMsg)
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -202,10 +226,18 @@ export default function Bookings() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl p-8 w-full max-w-lg shadow-2xl">
             <h2 className="text-xl font-bold mb-6 text-gray-800">New Booking Request</h2>
+            
+            {error && (
+              <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl">
+                <p className="text-red-700 text-sm font-medium">❌ {error}</p>
+              </div>
+            )}
+            
             <form onSubmit={handleSubmit} className="space-y-4">
               <select required value={form.resourceId}
                 onChange={e => setForm({ ...form, resourceId: e.target.value })}
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-100">
+                disabled={submitting}
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-100 disabled:bg-gray-100">
                 <option value="">Select Resource</option>
                 {resources.map(r => (
                   <option key={r.id} value={r.id}>{r.name} — {r.location}</option>
@@ -217,34 +249,48 @@ export default function Bookings() {
                   <input required type="datetime-local" value={form.startTime}
                     onChange={e => setForm({ ...form, startTime: e.target.value })}
                     min={getMinDateTime()}
-                    className="w-full border border-gray-200 rounded-xl px-4 py-3 mt-1 focus:outline-none focus:ring-2 focus:ring-green-100" />
+                    disabled={submitting}
+                    className="w-full border border-gray-200 rounded-xl px-4 py-3 mt-1 focus:outline-none focus:ring-2 focus:ring-green-100 disabled:bg-gray-100" />
                 </div>
                 <div>
                   <label className="text-xs text-gray-500 font-medium">End Time</label>
                   <input required type="datetime-local" value={form.endTime}
                     onChange={e => setForm({ ...form, endTime: e.target.value })}
                     min={getMinDateTime()}
-                    className="w-full border border-gray-200 rounded-xl px-4 py-3 mt-1 focus:outline-none focus:ring-2 focus:ring-green-100" />
+                    disabled={submitting}
+                    className="w-full border border-gray-200 rounded-xl px-4 py-3 mt-1 focus:outline-none focus:ring-2 focus:ring-green-100 disabled:bg-gray-100" />
                 </div>
               </div>
               <input required placeholder="Purpose of booking" value={form.purpose}
                 onChange={e => setForm({ ...form, purpose: e.target.value })}
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-100" />
+                disabled={submitting}
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-100 disabled:bg-gray-100" />
               <input placeholder="Expected Attendees" type="number" value={form.expectedAttendees}
                 onChange={e => setForm({ ...form, expectedAttendees: e.target.value })}
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-100" />
+                disabled={submitting}
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-100 disabled:bg-gray-100" />
               <div className="flex gap-3 pt-2">
-                <button type="submit"
-                  className="flex-1 bg-green-600 text-white py-3 rounded-xl hover:bg-green-700 font-medium">
-                  Submit Request
+                <button type="submit" disabled={submitting}
+                  className="flex-1 bg-green-600 text-white py-3 rounded-xl hover:bg-green-700 font-medium disabled:bg-gray-400 disabled:cursor-not-allowed transition">
+                  {submitting ? '⏳ Submitting...' : 'Submit Request'}
                 </button>
-                <button type="button" onClick={() => setShowForm(false)}
-                  className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl hover:bg-gray-200 font-medium">
+                <button type="button" onClick={() => {
+                  setShowForm(false)
+                  setError('')
+                }} disabled={submitting}
+                  className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl hover:bg-gray-200 font-medium disabled:cursor-not-allowed transition">
                   Cancel
                 </button>
               </div>
             </form>
           </div>
+        </div>
+      )}
+
+      {/* Success Message */}
+      {success && (
+        <div className="fixed bottom-6 right-6 bg-green-50 border border-green-200 text-green-700 px-6 py-4 rounded-xl shadow-lg animate-pulse">
+          {success}
         </div>
       )}
 
