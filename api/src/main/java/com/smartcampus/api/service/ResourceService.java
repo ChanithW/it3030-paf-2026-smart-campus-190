@@ -2,8 +2,10 @@ package com.smartcampus.api.service;
 
 import com.smartcampus.api.dto.ResourceRequest;
 import com.smartcampus.api.enums.ResourceStatus;
+import com.smartcampus.api.exception.BookingConflictException;
 import com.smartcampus.api.exception.ResourceNotFoundException;
 import com.smartcampus.api.model.Resource;
+import com.smartcampus.api.repository.BookingRepository;
 import com.smartcampus.api.repository.ResourceRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -15,6 +17,7 @@ import java.util.List;
 public class ResourceService {
 
     private final ResourceRepository resourceRepository;
+    private final BookingRepository bookingRepository;
 
     public List<Resource> getAllResources() {
         return resourceRepository.findAll();
@@ -64,6 +67,14 @@ public class ResourceService {
 
     public void deleteResource(String id) {
         Resource resource = getResourceById(id);
+
+        if (!bookingRepository.findByResourceId(id).isEmpty()) {
+            throw new BookingConflictException(
+                    "Cannot delete this facility because it has related bookings. "
+                            + "Cancel or remove related bookings first."
+            );
+        }
+
         resourceRepository.delete(resource);
     }
 }
