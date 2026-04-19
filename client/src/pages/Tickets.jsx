@@ -19,6 +19,12 @@ export default function Tickets() {
     category: '', description: '', priority: 'MEDIUM', location: '', contactDetails: ''
   })
 
+  const validateContact = (contact) => {
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/
+    const phoneRegex = /^\+?[0-9]{10}$/
+    return emailRegex.test(contact) || phoneRegex.test(contact)
+  }
+
   useEffect(() => { fetchTickets() }, [])
 
   const fetchTickets = async () => {
@@ -60,6 +66,12 @@ export default function Tickets() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+
+    if (!validateContact(form.contactDetails)) {
+      alert('Please provide a valid email address or 10-digit phone number')
+      return
+    }
+
     setUploading(true)
     try {
       const formData = new FormData()
@@ -268,7 +280,7 @@ export default function Tickets() {
                   onChange={e => setForm({ ...form, location: e.target.value })}
                   className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-orange-100" />
               </div>
-              <input placeholder="Contact Details" value={form.contactDetails}
+              <input required placeholder="Contact Details (Email or 10-digit Phone)" value={form.contactDetails}
                 onChange={e => setForm({ ...form, contactDetails: e.target.value })}
                 className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-orange-100" />
               <div>

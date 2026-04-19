@@ -15,7 +15,13 @@ import com.smartcampus.api.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
+import java.util.Set;
+import java.util.EnumSet;
 
 @Service
 @RequiredArgsConstructor
@@ -46,6 +52,8 @@ public class BookingService {
     public Booking createBooking(BookingRequest request, User user) {
         Resource resource = resourceRepository.findById(request.getResourceId())
                 .orElseThrow(() -> new ResourceNotFoundException("Resource not found with id: " + request.getResourceId()));
+
+        validateResourceAvailability(resource, request.getStartTime(), request.getEndTime());
 
         List<Booking> conflicts = bookingRepository.findConflictingBookings(
                 resource, request.getStartTime(), request.getEndTime());
@@ -85,6 +93,93 @@ public class BookingService {
                 ));
 
         return saved;
+    }
+
+    private void validateResourceAvailability(Resource resource, LocalDateTime startTime, LocalDateTime endTime) {
+        String availabilityWindows = resource.getAvailabilityWindows();
+        if (availabilityWindows == null || availabilityWindows.isBlank()) {
+            return;
+        }
+
+        AvailabilityWindow availabilityWindow = parseAvailabilityWindow(availabilityWindows);
+        if (availabilityWindow == null) {
+            return;
+        }
+
+        if (!startTime.toLocalDate().equals(endTime.toLocalDate())) {
+            throw new BookingConflictException(buildUnavailableMessage(resource.getName(), startTime, availabilityWindow));
+        }
+
+        DayOfWeek bookingDay = startTime.getDayOfWeek();
+        if (!availabilityWindow.allowsDay(bookingDay)) {
+            throw new BookingConflictException(buildUnavailableMessage(resource.getName(), startTime, availabilityWindow));
+        }
+
+        LocalTime bookingStartTime = startTime.toLocalTime();
+        LocalTime bookingEndTime = endTime.toLocalTime();
+        if (bookingStartTime.isBefore(availabilityWindow.startTime) || bookingEndTime.isAfter(availabilityWindow.endTime)) {
+            throw new BookingConflictException(buildUnavailableMessage(resource.getName(), startTime, availabilityWindow));
+        }
+    }
+
+    private AvailabilityWindow parseAvailabilityWindow(String availabilityWindows) {
+        String[] parts = availabilityWindows.split("\\|");
+        if (parts.length != 2) {
+            return null;
+        }
+
+        String daysPart = parts[0].trim();
+        String[] timeParts = parts[1].trim().split("\\s+to\\s+");
+        if (timeParts.length != 2) {
+            return null;
+        }
+
+        try {
+            LocalTime startTime = LocalTime.parse(timeParts[0].trim());
+            LocalTime endTime = LocalTime.parse(timeParts[1].trim());
+            if (!endTime.isAfter(startTime)) {
+                return null;
+            }
+            return new AvailabilityWindow(daysPart, startTime, endTime);
+        } catch (Exception ex) {
+            return null;
+        }
+    }
+
+    private String buildUnavailableMessage(String resourceName, LocalDateTime bookingStart, AvailabilityWindow availabilityWindow) {
+        return resourceName + " is not available on " + formatDayName(bookingStart.toLocalDate())
+                + " at " + formatTime(bookingStart.toLocalTime()) + ". Available "
+                + availabilityWindow.daysLabel + " from " + formatTime(availabilityWindow.startTime)
+                + " to " + formatTime(availabilityWindow.endTime) + ".";
+    }
+
+    private String formatDayName(LocalDate date) {
+        String day = date.getDayOfWeek().name().toLowerCase();
+        return day.substring(0, 1).toUpperCase() + day.substring(1);
+    }
+
+    private String formatTime(LocalTime time) {
+        return time.toString().length() == 5 ? time.toString() : time.toString().substring(0, 5);
+    }
+
+    private record AvailabilityWindow(String daysLabel, LocalTime startTime, LocalTime endTime) {
+        private boolean allowsDay(DayOfWeek dayOfWeek) {
+            String normalized = daysLabel.trim().toLowerCase();
+            return switch (normalized) {
+                case "all week" -> true;
+                case "weekend" -> dayOfWeek == DayOfWeek.SATURDAY || dayOfWeek == DayOfWeek.SUNDAY;
+                case "mon-fri" -> dayOfWeek.getValue() >= DayOfWeek.MONDAY.getValue() && dayOfWeek.getValue() <= DayOfWeek.FRIDAY.getValue();
+                case "mon-sat" -> dayOfWeek.getValue() >= DayOfWeek.MONDAY.getValue() && dayOfWeek.getValue() <= DayOfWeek.SATURDAY.getValue();
+                case "monday" -> dayOfWeek == DayOfWeek.MONDAY;
+                case "tuesday" -> dayOfWeek == DayOfWeek.TUESDAY;
+                case "wednesday" -> dayOfWeek == DayOfWeek.WEDNESDAY;
+                case "thursday" -> dayOfWeek == DayOfWeek.THURSDAY;
+                case "friday" -> dayOfWeek == DayOfWeek.FRIDAY;
+                case "saturday" -> dayOfWeek == DayOfWeek.SATURDAY;
+                case "sunday" -> dayOfWeek == DayOfWeek.SUNDAY;
+                default -> false;
+            };
+        }
     }
 
     public Booking updateBookingStatus(String id, StatusUpdateRequest request) {

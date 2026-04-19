@@ -1,6 +1,6 @@
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import api from '../api/axios'
 
 export default function Navbar() {
@@ -8,17 +8,32 @@ export default function Navbar() {
   const navigate = useNavigate()
   const location = useLocation()
   const [unreadCount, setUnreadCount] = useState(0)
+  const [bellAnimationTick, setBellAnimationTick] = useState(0)
+  const hasFetchedOnceRef = useRef(false)
 
   useEffect(() => {
     fetchUnreadCount()
-    const interval = setInterval(fetchUnreadCount, 30000)
+    const interval = setInterval(fetchUnreadCount, 10000)
     return () => clearInterval(interval)
   }, [])
 
   const fetchUnreadCount = async () => {
     try {
       const res = await api.get('/api/notifications/unread')
-      setUnreadCount(res.data.length)
+      const nextUnreadCount = res.data.length
+
+      setUnreadCount((prevUnreadCount) => {
+        // Trigger on increase, and also on initial load when unread notifications already exist.
+        if ((hasFetchedOnceRef.current && nextUnreadCount > prevUnreadCount)
+          || (!hasFetchedOnceRef.current && nextUnreadCount > 0)) {
+          setBellAnimationTick((prevTick) => prevTick + 1)
+        }
+        return nextUnreadCount
+      })
+
+      if (!hasFetchedOnceRef.current) {
+        hasFetchedOnceRef.current = true
+      }
     } catch (err) {
       console.error(err)
     }
@@ -65,7 +80,14 @@ export default function Navbar() {
           onClick={() => navigate('/notifications')}
           className="relative p-2 rounded-lg text-gray-600 hover:bg-gray-50 transition"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg
+            key={bellAnimationTick}
+            xmlns="http://www.w3.org/2000/svg"
+            className={`h-6 w-6 ${bellAnimationTick > 0 ? 'bell-ring' : ''}`}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
           </svg>
           {unreadCount > 0 && (
