@@ -1,4 +1,5 @@
-const RESOURCE_LOCATIONS_STORAGE_KEY = 'resourceCustomLocations'
+const RESOURCE_LOCATIONS_STORAGE_KEY = 'resourceLocations'
+const LEGACY_RESOURCE_LOCATIONS_STORAGE_KEY = 'resourceCustomLocations'
 
 const BLOCKS = [
   { name: 'Block A', maxFloor: 7 },
@@ -25,9 +26,45 @@ export const BASE_RESOURCE_LOCATIONS = BLOCKS.flatMap(({ name, maxFloor }) =>
 
 const normalizeLocation = (value) => value.trim()
 
-export const getStoredCustomResourceLocations = () => {
+const uniqueLocations = (values) => {
+  const seen = new Set()
+  const result = []
+
+  values.forEach((value) => {
+    const normalized = normalizeLocation(value)
+    if (!normalized) return
+
+    const key = normalized.toLowerCase()
+    if (seen.has(key)) return
+
+    seen.add(key)
+    result.push(normalized)
+  })
+
+  return result
+}
+
+const saveResourceLocations = (values) => {
+  localStorage.setItem(RESOURCE_LOCATIONS_STORAGE_KEY, JSON.stringify(uniqueLocations(values)))
+}
+
+const getStoredResourceLocations = () => {
   try {
     const raw = localStorage.getItem(RESOURCE_LOCATIONS_STORAGE_KEY)
+    if (!raw) return null
+
+    const parsed = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return null
+
+    return uniqueLocations(parsed)
+  } catch {
+    return null
+  }
+}
+
+export const getStoredCustomResourceLocations = () => {
+  try {
+    const raw = localStorage.getItem(LEGACY_RESOURCE_LOCATIONS_STORAGE_KEY)
     if (!raw) return []
 
     const parsed = JSON.parse(raw)
@@ -42,8 +79,13 @@ export const getStoredCustomResourceLocations = () => {
 }
 
 export const getAllResourceLocations = () => {
-  const custom = getStoredCustomResourceLocations()
-  return [...BASE_RESOURCE_LOCATIONS, ...custom]
+  const stored = getStoredResourceLocations()
+  if (stored) return stored
+
+  const legacyCustom = getStoredCustomResourceLocations()
+  const initial = uniqueLocations([...BASE_RESOURCE_LOCATIONS, ...legacyCustom])
+  saveResourceLocations(initial)
+  return initial
 }
 
 export const saveCustomResourceLocation = (value) => {
@@ -54,6 +96,35 @@ export const saveCustomResourceLocation = (value) => {
   const exists = all.some((location) => location.toLowerCase() === normalized.toLowerCase())
   if (exists) return
 
-  const updatedCustom = [...getStoredCustomResourceLocations(), normalized]
-  localStorage.setItem(RESOURCE_LOCATIONS_STORAGE_KEY, JSON.stringify(updatedCustom))
+  saveResourceLocations([...all, normalized])
+}
+
+export const updateResourceLocation = (oldValue, newValue) => {
+  const normalizedOld = normalizeLocation(oldValue)
+  const normalizedNew = normalizeLocation(newValue)
+
+  if (!normalizedOld || !normalizedNew) return
+
+  const updated = getAllResourceLocations().map((location) =>
+    location.toLowerCase() === normalizedOld.toLowerCase() ? normalizedNew : location
+  )
+
+  saveResourceLocations(updated)
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('resource-locations-changed'))
+  }
+}
+
+export const deleteResourceLocation = (value) => {
+  const normalized = normalizeLocation(value)
+  if (!normalized) return
+
+  const updated = getAllResourceLocations().filter(
+    (location) => location.toLowerCase() !== normalized.toLowerCase()
+  )
+
+  saveResourceLocations(updated)
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('resource-locations-changed'))
+  }
 }
