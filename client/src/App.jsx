@@ -10,6 +10,8 @@ import UserManagement from './pages/UserManagement'
 import NotificationPreferences from './pages/NotificationPreferences'
 import BookingVerification from './pages/BookingVerification'
 import Profile from './pages/Profile'
+import TermsOfService from './pages/TermsOfService'
+import PrivacyPolicy from './pages/PrivacyPolicy'
 
 function App() {
   const { user, loading } = useAuth()
@@ -29,6 +31,8 @@ function App() {
       <Route path="/verify" element={user ? <BookingVerification /> : <Navigate to="/login" />} />
       <Route path="/preferences" element={user ? <NotificationPreferences /> : <Navigate to="/login" />} />
       <Route path="*" element={<Navigate to={user ? "/dashboard" : "/login"} />} />
+      <Route path="/terms" element={<TermsOfService />} />
+      <Route path="/privacy" element={<PrivacyPolicy />} />
     </Routes>
   )
 }
