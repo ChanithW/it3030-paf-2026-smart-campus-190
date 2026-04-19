@@ -50,6 +50,12 @@ export default function Bookings() {
     e.preventDefault()
     setError('')
     setSuccess('')
+
+    if (overCapacity) {
+      setError(`This resource cannot be booked for ${form.expectedAttendees} attendees. Maximum capacity is ${selectedResource.capacity}.`)
+      return
+    }
+
     setSubmitting(true)
     try {
       await api.post('/api/bookings', form)
@@ -97,6 +103,12 @@ export default function Bookings() {
   const visibleResources = selectedResourceType
     ? resources.filter(r => r.type === selectedResourceType)
     : resources
+  const selectedResource = resources.find(r => r.id === form.resourceId)
+  const overCapacity = !!(
+    selectedResource?.capacity &&
+    form.expectedAttendees &&
+    Number(form.expectedAttendees) > Number(selectedResource.capacity)
+  )
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -272,8 +284,16 @@ export default function Bookings() {
               <input placeholder="Expected Attendees" type="number" value={form.expectedAttendees}
                 onChange={e => setForm({ ...form, expectedAttendees: e.target.value })}
                 className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-100" />
+              {overCapacity && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800">
+                  <p className="text-sm font-semibold">Capacity exceeded</p>
+                  <p className="mt-1 text-sm">
+                    This resource supports up to {selectedResource.capacity} attendees.
+                  </p>
+                </div>
+              )}
               <div className="flex gap-3 pt-2">
-                <button type="submit" disabled={submitting}
+                <button type="submit" disabled={submitting || overCapacity}
                   className="flex-1 bg-green-600 text-white py-3 rounded-xl hover:bg-green-700 font-medium disabled:bg-gray-400 disabled:cursor-not-allowed">
                   {submitting ? 'Submitting...' : 'Submit Request'}
                 </button>
