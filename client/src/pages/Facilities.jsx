@@ -24,6 +24,8 @@ export default function Facilities() {
   const [otherLocation, setOtherLocation] = useState('')
   const [filter, setFilter] = useState({ type: '', location: '', capacity: '', status: '' })
   const [formError, setFormError] = useState('')
+  const [toast, setToast] = useState({ show: false, type: 'success', message: '' })
+  const [deleteTarget, setDeleteTarget] = useState(null)
   const [form, setForm] = useState({
     name: '', type: '', capacity: '', location: '',
     availabilityWindows: '', status: 'ACTIVE', description: ''
@@ -74,6 +76,21 @@ export default function Facilities() {
     setResourceLocations(getAllResourceLocations())
   }, [])
 
+  // Auto-hide popup messages after a short delay.
+  useEffect(() => {
+    if (!toast.show) return undefined
+
+    const timeoutId = setTimeout(() => {
+      setToast((prev) => ({ ...prev, show: false }))
+    }, 3000)
+
+    return () => clearTimeout(timeoutId)
+  }, [toast.show])
+
+  const showToast = (message, type = 'success') => {
+    setToast({ show: true, type, message })
+  }
+
   // Retrieve resources from the API and update loading state.
   const fetchResources = async () => {
     try {
@@ -81,6 +98,7 @@ export default function Facilities() {
       setResources(res.data)
     } catch (err) {
       console.error(err)
+      showToast('Failed to load resources.', 'error')
     } finally {
       setLoading(false)
     }
@@ -169,8 +187,10 @@ export default function Facilities() {
 
       if (editingResource) {
         await api.put(`/api/resources/${editingResource.id}`, payload)
+        showToast('Resource updated successfully.')
       } else {
         await api.post('/api/resources', payload)
+        showToast('Resource created successfully.')
       }
 
       fetchResources()
@@ -178,17 +198,28 @@ export default function Facilities() {
     } catch (err) {
       console.error(err)
       setFormError('Failed to save resource. Please try again.')
+      showToast('Failed to save resource.', 'error')
     }
   }
 
-  // Delete a resource after explicit user confirmation.
-  const handleDelete = async (id) => {
-    if (!confirm('Delete this resource?')) return
+  // Open custom confirmation popup before delete action.
+  const promptDelete = (resource) => {
+    setDeleteTarget(resource)
+  }
+
+  // Delete a resource after custom confirmation.
+  const handleDelete = async () => {
+    if (!deleteTarget) return
+
     try {
-      await api.delete(`/api/resources/${id}`)
+      await api.delete(`/api/resources/${deleteTarget.id}`)
+      showToast('Resource deleted successfully.')
       fetchResources()
     } catch (err) {
       console.error(err)
+      showToast('Failed to delete resource.', 'error')
+    } finally {
+      setDeleteTarget(null)
     }
   }
 
@@ -269,6 +300,22 @@ export default function Facilities() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {toast.show && (
+        <div className="fixed right-4 top-4 z-[70] w-full max-w-sm">
+          <div
+            className={`rounded-xl border px-4 py-3 shadow-lg backdrop-blur-sm ${toast.type === 'error'
+              ? 'border-red-200 bg-red-50 text-red-800'
+              : 'border-emerald-200 bg-emerald-50 text-emerald-800'
+              }`}
+            role="status"
+            aria-live="polite"
+          >
+            <p className="text-sm font-semibold">{toast.type === 'error' ? 'Action failed' : 'Success'}</p>
+            <p className="mt-1 text-sm">{toast.message}</p>
+          </div>
+        </div>
+      )}
+
       <Navbar />
       <div className="max-w-6xl mx-auto px-6 py-8">
         <div className="flex justify-between items-center mb-6">
@@ -349,7 +396,7 @@ export default function Facilities() {
                       className="flex-1 text-sm bg-blue-50 text-blue-600 px-3 py-2 rounded-xl hover:bg-blue-100 font-medium">
                       Edit
                     </button>
-                    <button onClick={() => handleDelete(r.id)}
+                    <button onClick={() => promptDelete(r)}
                       className="flex-1 text-sm bg-red-50 text-red-500 px-3 py-2 rounded-xl hover:bg-red-100 font-medium">
                       Delete
                     </button>
@@ -373,8 +420,9 @@ export default function Facilities() {
           <div className="bg-white rounded-2xl p-8 w-full max-w-lg shadow-2xl">
             <h2 className="text-xl font-bold mb-6 text-gray-800">{editingResource ? 'Edit Resource' : 'Add New Resource'}</h2>
             {formError && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-                {formError}
+              <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 shadow-sm" role="alert" aria-live="assertive">
+                <p className="font-semibold">Please fix this issue</p>
+                <p className="mt-1">{formError}</p>
               </div>
             )}
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -481,6 +529,36 @@ export default function Facilities() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete confirmation popup */}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <h3 className="text-lg font-bold text-gray-800">Delete Resource</h3>
+            <p className="mt-2 text-sm text-gray-600">
+              Are you sure you want to delete
+              <span className="font-semibold text-gray-800"> {deleteTarget.name}</span>?
+              This action cannot be undone.
+            </p>
+            <div className="mt-6 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setDeleteTarget(null)}
+                className="flex-1 rounded-xl bg-gray-100 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-200"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDelete}
+                className="flex-1 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-red-700"
+              >
+                Delete
+              </button>
+            </div>
           </div>
         </div>
       )}
