@@ -3,7 +3,6 @@ import { useAuth } from '../context/AuthContext'
 import Navbar from '../components/Navbar'
 import api from '../api/axios'
 import { QRCodeSVG as QRCode } from 'qrcode.react'
-import { getAllResourceTypes } from '../constants/resourceTypes'
 
 export default function Bookings() {
   const { user } = useAuth()
@@ -12,17 +11,18 @@ export default function Bookings() {
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [filterStatus, setFilterStatus] = useState('')
+  const [filterDate, setFilterDate] = useState('')
   const [qrBooking, setQrBooking] = useState(null)
-  const [resourceTypes, setResourceTypes] = useState([])
-  const [selectedResourceType, setSelectedResourceType] = useState('')
   const [form, setForm] = useState({
     resourceId: '', startTime: '', endTime: '', purpose: '', expectedAttendees: ''
   })
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
+  const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
     fetchBookings()
     fetchResources()
-    setResourceTypes(getAllResourceTypes())
   }, [])
 
   const fetchBookings = async () => {
@@ -48,14 +48,38 @@ export default function Bookings() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    setError('')
+    if (form.startTime && form.endTime && form.endTime <= form.startTime) {
+      setError('End time must be after start time')
+      return
+    }
+    setSubmitting(true)
     try {
       await api.post('/api/bookings', form)
+      setSuccess('Booking request submitted successfully! ✓')
       fetchBookings()
       setShowForm(false)
-      setSelectedResourceType('')
       setForm({ resourceId: '', startTime: '', endTime: '', purpose: '', expectedAttendees: '' })
+      setTimeout(() => setSuccess(''), 3000)
     } catch (err) {
-      alert(err.response?.data?.message || 'Booking failed — time slot may be taken!')
+      let errorMsg = 'Booking failed'
+      
+      // Check for validation errors map from backend
+      if (err.response?.data?.errors && typeof err.response.data.errors === 'object') {
+        // Get first error message from the errors object
+        const errorValues = Object.values(err.response.data.errors)
+        if (errorValues.length > 0) {
+          errorMsg = errorValues[0]
+        }
+      } else if (err.response?.data?.message) {
+        errorMsg = err.response.data.message
+      } else if (err.response?.data?.error) {
+        errorMsg = err.response.data.error
+      }
+      
+      setError(errorMsg)
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -79,17 +103,30 @@ export default function Bookings() {
   }
 
   const statusConfig = {
-    PENDING: { color: 'bg-yellow-100 text-yellow-700', label: 'Pending' },
-    APPROVED: { color: 'bg-green-100 text-green-700', label: 'Approved' },
-    REJECTED: { color: 'bg-red-100 text-red-700', label: 'Rejected' },
-    CANCELLED: { color: 'bg-gray-100 text-gray-500', label: 'Cancelled' }
+    PENDING: { color: 'bg-yellow-100 text-yellow-700', label: 'Pending', description: 'Waiting for admin approval' },
+    APPROVED: { color: 'bg-green-100 text-green-700', label: 'Approved', description: 'Booking has been confirmed' },
+    REJECTED: { color: 'bg-red-100 text-red-700', label: 'Rejected', description: 'Booking was declined' },
+    CANCELLED: { color: 'bg-gray-100 text-gray-500', label: 'Cancelled', description: 'User cancelled the booking' }
   }
 
-  const typeFilteredResources = selectedResourceType
-    ? resources.filter((r) => (r.type || '').toLowerCase() === selectedResourceType.toLowerCase())
-    : resources
+  const filtered = bookings
+    .filter(b => !filterStatus || b.status === filterStatus)
+    .filter(b => !filterDate || b.startTime.startsWith(filterDate))
 
-  const filtered = bookings.filter(b => !filterStatus || b.status === filterStatus)
+  const getMinDateTime = () => {
+    const now = new Date()
+    now.setMinutes(now.getMinutes() + 1) // Round up to next minute
+    const year = now.getFullYear()
+    const month = String(now.getMonth() + 1).padStart(2, '0')
+    const day = String(now.getDate()).padStart(2, '0')
+    const hours = String(now.getHours()).padStart(2, '0')
+    const minutes = String(now.getMinutes()).padStart(2, '0')
+    return `${year}-${month}-${day}T${hours}:${minutes}`
+  }
+
+  const selectedResource = resources.find(r => r.id === form.resourceId)
+  const overCapacity = !!(selectedResource?.capacity && form.expectedAttendees &&
+    parseInt(form.expectedAttendees) > selectedResource.capacity)
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -102,19 +139,14 @@ export default function Bookings() {
               {user?.role === 'ADMIN' ? 'Manage all booking requests' : 'Your booking requests'}
             </p>
           </div>
-          <button onClick={() => {
-            setResourceTypes(getAllResourceTypes())
-            setSelectedResourceType('')
-            setForm({ resourceId: '', startTime: '', endTime: '', purpose: '', expectedAttendees: '' })
-            setShowForm(true)
-          }}
+          <button onClick={() => setShowForm(true)}
             className="bg-green-600 text-white px-5 py-2.5 rounded-xl hover:bg-green-700 text-sm font-medium shadow-sm">
             + New Booking
           </button>
         </div>
 
         {/* Filter */}
-        <div className="flex gap-2 mb-6 flex-wrap">
+        <div className="flex gap-2 mb-6 flex-wrap items-center">
           {['', 'PENDING', 'APPROVED', 'REJECTED', 'CANCELLED'].map(s => (
             <button key={s} onClick={() => setFilterStatus(s)}
               className={`px-4 py-2 rounded-xl text-sm font-medium transition ${
@@ -125,6 +157,14 @@ export default function Bookings() {
               {s || 'All'}
             </button>
           ))}
+          {user?.role === 'ADMIN' && (
+            <input
+              type="date"
+              value={filterDate}
+              onChange={e => setFilterDate(e.target.value)}
+              className="ml-auto border border-gray-200 rounded-xl px-4 py-2 text-sm text-gray-600 bg-white focus:outline-none focus:ring-2 focus:ring-gray-200"
+            />
+          )}
         </div>
 
         {loading ? (
@@ -137,7 +177,9 @@ export default function Bookings() {
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
                       <h3 className="font-bold text-gray-800 text-lg">{b.resource?.name}</h3>
-                      <span className={`text-xs px-3 py-1 rounded-full font-medium ${statusConfig[b.status]?.color}`}>
+                      <span 
+                        title={statusConfig[b.status]?.description}
+                        className={`text-xs px-3 py-1 rounded-full font-medium cursor-help ${statusConfig[b.status]?.color}`}>
                         {statusConfig[b.status]?.label}
                       </span>
                     </div>
@@ -148,6 +190,12 @@ export default function Bookings() {
                     </div>
                     {b.expectedAttendees && (
                       <p className="text-sm text-gray-500 mt-1">👥 {b.expectedAttendees} attendees</p>
+                    )}
+                    {b.createdAt && (
+                      <p className="text-xs text-gray-400 mt-2">📅 Created: {new Date(b.createdAt).toLocaleString()}</p>
+                    )}
+                    {user?.role === 'ADMIN' && b.user && (
+                      <p className="text-xs text-gray-400 mt-1">👤 Booked by: {b.user.name} ({b.user.email})</p>
                     )}
                     {b.rejectionReason && (
                       <p className="text-sm text-red-500 mt-2 bg-red-50 px-3 py-2 rounded-lg">
@@ -205,62 +253,83 @@ export default function Bookings() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl p-8 w-full max-w-lg shadow-2xl">
             <h2 className="text-xl font-bold mb-6 text-gray-800">New Booking Request</h2>
+            
+            {error && (
+              <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl">
+                <p className="text-red-700 text-sm font-medium">❌ {error}</p>
+              </div>
+            )}
+            
             <form onSubmit={handleSubmit} className="space-y-4">
-              <select value={selectedResourceType}
-                onChange={e => {
-                  setSelectedResourceType(e.target.value)
-                  setForm({ ...form, resourceId: '' })
-                }}
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-100">
-                <option value="">Select Resource Type</option>
-                {resourceTypes.map((type) => (
-                  <option key={type} value={type}>{type}</option>
-                ))}
-              </select>
-              <select required value={form.resourceId}
-                onChange={e => setForm({ ...form, resourceId: e.target.value })}
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-100">
-                <option value="">Select Resource</option>
-                {typeFilteredResources.map(r => (
-                  <option key={r.id} value={r.id}>{r.name} — {r.location}</option>
-                ))}
-              </select>
+              <div>
+                <label className="text-xs text-gray-500 font-medium">Resource</label>
+                <select required value={form.resourceId}
+                  onChange={e => setForm({ ...form, resourceId: e.target.value })}
+                  disabled={submitting}
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 mt-1 focus:outline-none focus:ring-2 focus:ring-green-100 disabled:bg-gray-100">
+                  <option value="">Select Resource</option>
+                  {resources.map(r => (
+                    <option key={r.id} value={r.id}>
+                      {r.name} — {r.location} {r.capacity ? `(Capacity: ${r.capacity})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs text-gray-500 font-medium">Start Time</label>
                   <input required type="datetime-local" value={form.startTime}
                     onChange={e => setForm({ ...form, startTime: e.target.value })}
-                    className="w-full border border-gray-200 rounded-xl px-4 py-3 mt-1 focus:outline-none focus:ring-2 focus:ring-green-100" />
+                    min={getMinDateTime()}
+                    disabled={submitting}
+                    className="w-full border border-gray-200 rounded-xl px-4 py-3 mt-1 focus:outline-none focus:ring-2 focus:ring-green-100 disabled:bg-gray-100" />
                 </div>
                 <div>
                   <label className="text-xs text-gray-500 font-medium">End Time</label>
                   <input required type="datetime-local" value={form.endTime}
                     onChange={e => setForm({ ...form, endTime: e.target.value })}
-                    className="w-full border border-gray-200 rounded-xl px-4 py-3 mt-1 focus:outline-none focus:ring-2 focus:ring-green-100" />
+                    min={form.startTime || getMinDateTime()}
+                    disabled={submitting}
+                    className="w-full border border-gray-200 rounded-xl px-4 py-3 mt-1 focus:outline-none focus:ring-2 focus:ring-green-100 disabled:bg-gray-100" />
                 </div>
               </div>
               <input required placeholder="Purpose of booking" value={form.purpose}
                 onChange={e => setForm({ ...form, purpose: e.target.value })}
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-100" />
-              <input placeholder="Expected Attendees" type="number" value={form.expectedAttendees}
+                disabled={submitting}
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-100 disabled:bg-gray-100" />
+              <input placeholder="Expected Attendees" type="number" min="1" value={form.expectedAttendees}
                 onChange={e => setForm({ ...form, expectedAttendees: e.target.value })}
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-100" />
+                disabled={submitting}
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-100 disabled:bg-gray-100" />
+              {overCapacity && (
+                <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-xl">
+                  <p className="text-yellow-700 text-sm font-medium">
+                    ⚠️ Only {selectedResource.capacity} spots available (you entered {form.expectedAttendees})
+                  </p>
+                </div>
+              )}
               <div className="flex gap-3 pt-2">
-                <button type="submit"
-                  className="flex-1 bg-green-600 text-white py-3 rounded-xl hover:bg-green-700 font-medium">
-                  Submit Request
+                <button type="submit" disabled={submitting || overCapacity}
+                  className="flex-1 bg-green-600 text-white py-3 rounded-xl hover:bg-green-700 font-medium disabled:bg-gray-400 disabled:cursor-not-allowed transition">
+                  {submitting ? '⏳ Submitting...' : 'Submit Request'}
                 </button>
                 <button type="button" onClick={() => {
                   setShowForm(false)
-                  setSelectedResourceType('')
-                  setForm({ resourceId: '', startTime: '', endTime: '', purpose: '', expectedAttendees: '' })
-                }}
-                  className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl hover:bg-gray-200 font-medium">
+                  setError('')
+                }} disabled={submitting}
+                  className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl hover:bg-gray-200 font-medium disabled:cursor-not-allowed transition">
                   Cancel
                 </button>
               </div>
             </form>
           </div>
+        </div>
+      )}
+
+      {/* Success Message */}
+      {success && (
+        <div className="fixed bottom-6 right-6 bg-green-50 border border-green-200 text-green-700 px-6 py-4 rounded-xl shadow-lg animate-pulse">
+          {success}
         </div>
       )}
 
