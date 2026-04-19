@@ -191,4 +191,34 @@ public class TicketService {
     public Ticket saveTicket(Ticket ticket) {
         return ticketRepository.save(ticket);
     }
+
+    public Ticket updateTicket(String id, TicketRequest request, User user) {
+        Ticket ticket = getTicketById(id);
+
+        if (!ticket.getUser().getId().equals(user.getId())) {
+            throw new UnauthorizedException("You are not authorized to edit this ticket");
+        }
+
+        if (ticket.getStatus() != TicketStatus.OPEN) {
+            throw new IllegalStateException("You can only edit tickets that are still OPEN");
+        }
+
+        ticket.setCategory(request.getCategory());
+        ticket.setDescription(request.getDescription());
+        ticket.setLocation(request.getLocation());
+
+        Ticket saved = ticketRepository.save(ticket);
+
+        // Notify Admins
+        userRepository.findAll().stream()
+                .filter(u -> u.getRole() == Role.ADMIN)
+                .forEach(admin -> notificationService.createNotification(
+                        admin,
+                        "Ticket updated by " + user.getName() + ": " + ticket.getCategory(),
+                        "TICKET",
+                        saved.getId()
+                ));
+
+        return saved;
+    }
 }
