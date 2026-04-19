@@ -11,6 +11,7 @@ export default function Bookings() {
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [filterStatus, setFilterStatus] = useState('')
+  const [filterDate, setFilterDate] = useState('')
   const [qrBooking, setQrBooking] = useState(null)
   const [form, setForm] = useState({
     resourceId: '', startTime: '', endTime: '', purpose: '', expectedAttendees: ''
@@ -108,7 +109,9 @@ export default function Bookings() {
     CANCELLED: { color: 'bg-gray-100 text-gray-500', label: 'Cancelled', description: 'User cancelled the booking' }
   }
 
-  const filtered = bookings.filter(b => !filterStatus || b.status === filterStatus)
+  const filtered = bookings
+    .filter(b => !filterStatus || b.status === filterStatus)
+    .filter(b => !filterDate || b.startTime.startsWith(filterDate))
 
   const getMinDateTime = () => {
     const now = new Date()
@@ -143,7 +146,7 @@ export default function Bookings() {
         </div>
 
         {/* Filter */}
-        <div className="flex gap-2 mb-6 flex-wrap">
+        <div className="flex gap-2 mb-6 flex-wrap items-center">
           {['', 'PENDING', 'APPROVED', 'REJECTED', 'CANCELLED'].map(s => (
             <button key={s} onClick={() => setFilterStatus(s)}
               className={`px-4 py-2 rounded-xl text-sm font-medium transition ${
@@ -154,6 +157,14 @@ export default function Bookings() {
               {s || 'All'}
             </button>
           ))}
+          {user?.role === 'ADMIN' && (
+            <input
+              type="date"
+              value={filterDate}
+              onChange={e => setFilterDate(e.target.value)}
+              className="ml-auto border border-gray-200 rounded-xl px-4 py-2 text-sm text-gray-600 bg-white focus:outline-none focus:ring-2 focus:ring-gray-200"
+            />
+          )}
         </div>
 
         {loading ? (
