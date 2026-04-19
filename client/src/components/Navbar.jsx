@@ -76,9 +76,14 @@ export default function Navbar() {
         </button>
 
         <div className="flex items-center gap-2 pl-3 border-l border-gray-200">
-          <img src={user?.profilePicture} className="w-8 h-8 rounded-full ring-2 ring-gray-200" />
-          <div className="hidden md:block">
-            <p className="text-sm font-medium text-gray-800 leading-none">{user?.name}</p>
+          <img
+            src={user?.profilePicture}
+            className="w-8 h-8 rounded-full ring-2 ring-gray-200 cursor-pointer hover:ring-blue-400 transition"
+            onClick={() => navigate('/profile')}
+            title="View Profile"
+          />
+          <div className="hidden md:block cursor-pointer" onClick={() => navigate('/profile')}>
+            <p className="text-sm font-medium text-gray-800 leading-none hover:text-blue-600 transition">{user?.name}</p>
             <p className="text-xs text-gray-500 mt-0.5">{user?.role}</p>
           </div>
           <div className="flex items-center gap-1 ml-2">
