@@ -171,7 +171,11 @@ public class BookingService {
     }
 
     private String formatTime(LocalTime time) {
-        return time.toString().length() == 5 ? time.toString() : time.toString().substring(0, 5);
+        int hour = time.getHour();
+        int minute = time.getMinute();
+        String period = hour >= 12 ? "PM" : "AM";
+        int displayHour = hour % 12 == 0 ? 12 : hour % 12;
+        return String.format("%d:%02d %s", displayHour, minute, period);
     }
 
     private record AvailabilityWindow(String daysLabel, LocalTime startTime, LocalTime endTime) {
