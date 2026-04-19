@@ -55,6 +55,15 @@ public class BookingController {
                 .body(bookingService.createBooking(request, user));
     }
 
+    @PutMapping("/{id}")
+    public ResponseEntity<Booking> updateBooking(
+            @PathVariable String id,
+            @Valid @RequestBody BookingRequest request,
+            @AuthenticationPrincipal OAuth2User principal) {
+        User user = userService.getUserByEmail(principal.getAttribute("email"));
+        return ResponseEntity.ok(bookingService.updateBooking(id, request, user));
+    }
+
     @PatchMapping("/{id}/status")
     public ResponseEntity<Booking> updateBookingStatus(
             @PathVariable String id,
