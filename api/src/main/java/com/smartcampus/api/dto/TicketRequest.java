@@ -19,5 +19,10 @@ public class TicketRequest {
 
     private String location;
 
+    @NotBlank(message = "Contact details are required")
+    @Pattern(
+        regexp = "^([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,6})|(\\+?[0-9]{10})$",
+        message = "Please provide a valid email address or 10-digit phone number"
+    )
     private String contactDetails;
 }
