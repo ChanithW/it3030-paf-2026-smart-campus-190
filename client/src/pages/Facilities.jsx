@@ -217,7 +217,8 @@ export default function Facilities() {
       fetchResources()
     } catch (err) {
       console.error(err)
-      showToast('Failed to delete resource.', 'error')
+      const message = err.response?.data?.message || 'Failed to delete resource.'
+      showToast(message, 'error')
     } finally {
       setDeleteTarget(null)
     }
