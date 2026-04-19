@@ -4,6 +4,7 @@ import Navbar from '../components/Navbar'
 import api from '../api/axios'
 import { QRCodeSVG as QRCode } from 'qrcode.react'
 import { getAllResourceTypes } from '../constants/resourceTypes'
+import { getAllResourceLocations } from '../constants/resourceLocations'
 
 export default function Bookings() {
   const { user } = useAuth()
@@ -13,8 +14,12 @@ export default function Bookings() {
   const [showForm, setShowForm] = useState(false)
   const [filterStatus, setFilterStatus] = useState('')
   const [qrBooking, setQrBooking] = useState(null)
-  const [resourceTypes, setResourceTypes] = useState([])
   const [selectedResourceType, setSelectedResourceType] = useState('')
+  const [resourceTypes, setResourceTypes] = useState([])
+  const [resourceLocations, setResourceLocations] = useState([])
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
+  const [submitting, setSubmitting] = useState(false)
   const [form, setForm] = useState({
     resourceId: '', startTime: '', endTime: '', purpose: '', expectedAttendees: ''
   })
@@ -23,6 +28,19 @@ export default function Bookings() {
     fetchBookings()
     fetchResources()
     setResourceTypes(getAllResourceTypes())
+    setResourceLocations(getAllResourceLocations())
+  }, [])
+
+  useEffect(() => {
+    const handleTypesChanged = () => setResourceTypes(getAllResourceTypes())
+    window.addEventListener('resource-types-changed', handleTypesChanged)
+    return () => window.removeEventListener('resource-types-changed', handleTypesChanged)
+  }, [])
+
+  useEffect(() => {
+    const handleLocationsChanged = () => setResourceLocations(getAllResourceLocations())
+    window.addEventListener('resource-locations-changed', handleLocationsChanged)
+    return () => window.removeEventListener('resource-locations-changed', handleLocationsChanged)
   }, [])
 
   const fetchBookings = async () => {
@@ -48,14 +66,27 @@ export default function Bookings() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    setError('')
+    setSuccess('')
+
+    if (overCapacity) {
+      setError(`This resource cannot be booked for ${form.expectedAttendees} attendees. Maximum capacity is ${selectedResource.capacity}.`)
+      return
+    }
+
+    setSubmitting(true)
     try {
       await api.post('/api/bookings', form)
+      setSuccess('Booking request submitted successfully!')
       fetchBookings()
       setShowForm(false)
       setSelectedResourceType('')
       setForm({ resourceId: '', startTime: '', endTime: '', purpose: '', expectedAttendees: '' })
+      setTimeout(() => setSuccess(''), 3000)
     } catch (err) {
-      alert(err.response?.data?.message || 'Booking failed — time slot may be taken!')
+      setError(err.response?.data?.message || 'Booking failed — time slot may be taken!')
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -85,14 +116,28 @@ export default function Bookings() {
     CANCELLED: { color: 'bg-gray-100 text-gray-500', label: 'Cancelled' }
   }
 
-  const typeFilteredResources = selectedResourceType
-    ? resources.filter((r) => (r.type || '').toLowerCase() === selectedResourceType.toLowerCase())
-    : resources
-
   const filtered = bookings.filter(b => !filterStatus || b.status === filterStatus)
+  const visibleResources = selectedResourceType
+    ? resources.filter(r => r.type === selectedResourceType)
+    : resources
+  const selectedResource = resources.find(r => r.id === form.resourceId)
+  const hasCapacity = !!(selectedResource?.capacity)
+  const overCapacity = !!(
+    selectedResource?.capacity &&
+    form.expectedAttendees &&
+    Number(form.expectedAttendees) > Number(selectedResource.capacity)
+  )
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {success && (
+        <div className="fixed right-4 top-4 z-[70] w-full max-w-sm">
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-800 shadow-lg">
+            <p className="text-sm font-semibold">Success</p>
+            <p className="mt-1 text-sm">{success}</p>
+          </div>
+        </div>
+      )}
       <Navbar />
       <div className="max-w-5xl mx-auto px-6 py-8">
         <div className="flex justify-between items-center mb-6">
@@ -102,12 +147,7 @@ export default function Bookings() {
               {user?.role === 'ADMIN' ? 'Manage all booking requests' : 'Your booking requests'}
             </p>
           </div>
-          <button onClick={() => {
-            setResourceTypes(getAllResourceTypes())
-            setSelectedResourceType('')
-            setForm({ resourceId: '', startTime: '', endTime: '', purpose: '', expectedAttendees: '' })
-            setShowForm(true)
-          }}
+          <button onClick={() => setShowForm(true)}
             className="bg-green-600 text-white px-5 py-2.5 rounded-xl hover:bg-green-700 text-sm font-medium shadow-sm">
             + New Booking
           </button>
@@ -205,26 +245,43 @@ export default function Bookings() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl p-8 w-full max-w-lg shadow-2xl">
             <h2 className="text-xl font-bold mb-6 text-gray-800">New Booking Request</h2>
+            {error && (
+              <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-red-800 shadow-sm" role="alert" aria-live="assertive">
+                <p className="text-sm font-semibold">Please fix this issue</p>
+                <p className="mt-1 text-sm">{error}</p>
+              </div>
+            )}
             <form onSubmit={handleSubmit} className="space-y-4">
-              <select value={selectedResourceType}
-                onChange={e => {
-                  setSelectedResourceType(e.target.value)
-                  setForm({ ...form, resourceId: '' })
-                }}
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-100">
-                <option value="">Select Resource Type</option>
-                {resourceTypes.map((type) => (
-                  <option key={type} value={type}>{type}</option>
-                ))}
-              </select>
+              <div>
+                <label className="text-xs text-gray-500 font-medium">Resource Type</label>
+                <select
+                  value={selectedResourceType}
+                  onChange={e => {
+                    const value = e.target.value
+                    setSelectedResourceType(value)
+                    setForm({ ...form, resourceId: '' })
+                  }}
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 mt-1 focus:outline-none focus:ring-2 focus:ring-green-100"
+                >
+                  <option value="">Select Resource Type</option>
+                  {resourceTypes.map(type => (
+                    <option key={type} value={type}>{type}</option>
+                  ))}
+                </select>
+              </div>
               <select required value={form.resourceId}
                 onChange={e => setForm({ ...form, resourceId: e.target.value })}
                 className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-100">
                 <option value="">Select Resource</option>
-                {typeFilteredResources.map(r => (
+                {visibleResources.map(r => (
                   <option key={r.id} value={r.id}>{r.name} — {r.location}</option>
                 ))}
               </select>
+              {selectedResourceType && visibleResources.length === 0 && (
+                <p className="text-xs text-amber-600 font-medium">
+                  No active resources found for this type.
+                </p>
+              )}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs text-gray-500 font-medium">Start Time</label>
@@ -242,19 +299,29 @@ export default function Bookings() {
               <input required placeholder="Purpose of booking" value={form.purpose}
                 onChange={e => setForm({ ...form, purpose: e.target.value })}
                 className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-100" />
-              <input placeholder="Expected Attendees" type="number" value={form.expectedAttendees}
-                onChange={e => setForm({ ...form, expectedAttendees: e.target.value })}
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-100" />
+              {hasCapacity && (
+                <input placeholder="Expected Attendees" type="number" value={form.expectedAttendees}
+                  onChange={e => setForm({ ...form, expectedAttendees: e.target.value })}
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-100" />
+              )}
+              {overCapacity && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800">
+                  <p className="text-sm font-semibold">Capacity exceeded</p>
+                  <p className="mt-1 text-sm">
+                    This resource supports up to {selectedResource.capacity} attendees.
+                  </p>
+                </div>
+              )}
               <div className="flex gap-3 pt-2">
-                <button type="submit"
-                  className="flex-1 bg-green-600 text-white py-3 rounded-xl hover:bg-green-700 font-medium">
-                  Submit Request
+                <button type="submit" disabled={submitting || overCapacity}
+                  className="flex-1 bg-green-600 text-white py-3 rounded-xl hover:bg-green-700 font-medium disabled:bg-gray-400 disabled:cursor-not-allowed">
+                  {submitting ? 'Submitting...' : 'Submit Request'}
                 </button>
                 <button type="button" onClick={() => {
-                  setShowForm(false)
-                  setSelectedResourceType('')
-                  setForm({ resourceId: '', startTime: '', endTime: '', purpose: '', expectedAttendees: '' })
-                }}
+                    setShowForm(false)
+                    setSelectedResourceType('')
+                    setError('')
+                  }}
                   className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl hover:bg-gray-200 font-medium">
                   Cancel
                 </button>

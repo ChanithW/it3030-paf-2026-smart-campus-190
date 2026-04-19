@@ -2,26 +2,41 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import Navbar from '../components/Navbar'
 import api from '../api/axios'
-import { getAllResourceTypes, saveCustomResourceType } from '../constants/resourceTypes'
+import {
+  getAllResourceTypes,
+  saveCustomResourceType,
+  updateResourceType,
+  deleteResourceType
+} from '../constants/resourceTypes'
 import {
   getAllResourceLocations,
-  saveCustomResourceLocation
+  saveCustomResourceLocation,
+  updateResourceLocation,
+  deleteResourceLocation
 } from '../constants/resourceLocations'
 
 export default function Facilities() {
   const { user } = useAuth()
+
+  // Page state for resources, filters, and modal/form behavior.
   const [resources, setResources] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editingResource, setEditingResource] = useState(null)
   const [resourceTypes, setResourceTypes] = useState([])
   const [resourceLocations, setResourceLocations] = useState([])
+  const [typeEditor, setTypeEditor] = useState({ original: '', value: '' })
+  const [locationEditor, setLocationEditor] = useState({ original: '', value: '' })
+  const [isTypePanelCollapsed, setIsTypePanelCollapsed] = useState(true)
+  const [isLocationPanelCollapsed, setIsLocationPanelCollapsed] = useState(true)
   const [selectedType, setSelectedType] = useState('')
   const [otherType, setOtherType] = useState('')
   const [selectedLocation, setSelectedLocation] = useState('')
   const [otherLocation, setOtherLocation] = useState('')
   const [filter, setFilter] = useState({ type: '', location: '', capacity: '', status: '' })
   const [formError, setFormError] = useState('')
+  const [toast, setToast] = useState({ show: false, type: 'success', message: '' })
+  const [deleteTarget, setDeleteTarget] = useState(null)
   const [form, setForm] = useState({
     name: '', type: '', capacity: '', location: '',
     availabilityWindows: '', status: 'ACTIVE', description: ''
@@ -43,8 +58,10 @@ export default function Facilities() {
     'All Week'
   ]
 
+  // Serialize availability fields into a single backend-friendly string.
   const formatAvailability = ({ days, fromTime, toTime }) => `${days.trim()} | ${fromTime} to ${toTime}`
 
+  // Parse stored availability text when populating edit form.
   const parseAvailability = (availability = '') => {
     const [daysPart, timePart] = availability.split('|')
     if (!daysPart || !timePart) {
@@ -63,23 +80,231 @@ export default function Facilities() {
     }
   }
 
+  // Load resources and known type/location options on first render.
   useEffect(() => {
     fetchResources()
     setResourceTypes(getAllResourceTypes())
     setResourceLocations(getAllResourceLocations())
   }, [])
 
+  useEffect(() => {
+    const handleTypesChanged = () => {
+      setResourceTypes(getAllResourceTypes())
+    }
+
+    window.addEventListener('resource-types-changed', handleTypesChanged)
+    return () => window.removeEventListener('resource-types-changed', handleTypesChanged)
+  }, [])
+
+  useEffect(() => {
+    const handleLocationsChanged = () => {
+      setResourceLocations(getAllResourceLocations())
+    }
+
+    window.addEventListener('resource-locations-changed', handleLocationsChanged)
+    return () => window.removeEventListener('resource-locations-changed', handleLocationsChanged)
+  }, [])
+
+  // Auto-hide popup messages after a short delay.
+  useEffect(() => {
+    if (!toast.show) return undefined
+
+    const timeoutId = setTimeout(() => {
+      setToast((prev) => ({ ...prev, show: false }))
+    }, 3000)
+
+    return () => clearTimeout(timeoutId)
+  }, [toast.show])
+
+  const showToast = (message, type = 'success') => {
+    setToast({ show: true, type, message })
+  }
+
+  const buildResourcePayload = (resource, overrides = {}) => ({
+    name: resource.name,
+    type: resource.type,
+    capacity: resource.capacity ?? null,
+    location: resource.location,
+    availabilityWindows: resource.availabilityWindows || '',
+    status: resource.status,
+    description: resource.description || '',
+    ...overrides
+  })
+
+  const startTypeEdit = (type) => {
+    setTypeEditor({ original: type, value: type })
+  }
+
+  const cancelTypeEdit = () => {
+    setTypeEditor({ original: '', value: '' })
+  }
+
+  const startLocationEdit = (location) => {
+    setLocationEditor({ original: location, value: location })
+  }
+
+  const cancelLocationEdit = () => {
+    setLocationEditor({ original: '', value: '' })
+  }
+
+  const commitTypeEdit = async () => {
+    const oldValue = typeEditor.original.trim()
+    const newValue = typeEditor.value.trim()
+
+    if (!oldValue) return
+    if (!newValue) {
+      showToast('Resource type name is required.', 'error')
+      return
+    }
+
+    const duplicate = resourceTypes.some(
+      (type) => type.toLowerCase() === newValue.toLowerCase() && type.toLowerCase() !== oldValue.toLowerCase()
+    )
+
+    if (duplicate) {
+      showToast('That resource type already exists.', 'error')
+      return
+    }
+
+    try {
+      const affectedResources = resources.filter(
+        (resource) => (resource.type || '').toLowerCase() === oldValue.toLowerCase()
+      )
+
+      if (affectedResources.length > 0) {
+        await Promise.all(
+          affectedResources.map((resource) =>
+            api.put(`/api/resources/${resource.id}`, buildResourcePayload(resource, { type: newValue }))
+          )
+        )
+      }
+    } catch (err) {
+      console.error(err)
+      showToast('Failed to update resources with the new type name.', 'error')
+      return
+    }
+
+    updateResourceType(oldValue, newValue)
+    setResourceTypes(getAllResourceTypes())
+    await fetchResources()
+
+    if (selectedType.toLowerCase() === oldValue.toLowerCase()) {
+      setSelectedType(newValue)
+    }
+
+    if (form.type.toLowerCase() === oldValue.toLowerCase()) {
+      setForm({ ...form, type: newValue })
+    }
+
+    showToast('Resource type updated successfully.')
+    cancelTypeEdit()
+  }
+
+  const handleDeleteType = (type) => {
+    if (!confirm(`Delete resource type "${type}"?`)) return
+
+    deleteResourceType(type)
+    setResourceTypes(getAllResourceTypes())
+
+    if (selectedType.toLowerCase() === type.toLowerCase()) {
+      setSelectedType('OTHER')
+      setOtherType(type)
+      setForm({ ...form, type })
+    }
+
+    if (typeEditor.original.toLowerCase() === type.toLowerCase()) {
+      cancelTypeEdit()
+    }
+
+    showToast('Resource type deleted successfully.')
+  }
+
+  const commitLocationEdit = async () => {
+    const oldValue = locationEditor.original.trim()
+    const newValue = locationEditor.value.trim()
+
+    if (!oldValue) return
+    if (!newValue) {
+      showToast('Resource location name is required.', 'error')
+      return
+    }
+
+    const duplicate = resourceLocations.some(
+      (location) => location.toLowerCase() === newValue.toLowerCase() && location.toLowerCase() !== oldValue.toLowerCase()
+    )
+
+    if (duplicate) {
+      showToast('That resource location already exists.', 'error')
+      return
+    }
+
+    try {
+      const affectedResources = resources.filter(
+        (resource) => (resource.location || '').toLowerCase() === oldValue.toLowerCase()
+      )
+
+      if (affectedResources.length > 0) {
+        await Promise.all(
+          affectedResources.map((resource) =>
+            api.put(`/api/resources/${resource.id}`, buildResourcePayload(resource, { location: newValue }))
+          )
+        )
+      }
+    } catch (err) {
+      console.error(err)
+      showToast('Failed to update resources with the new location name.', 'error')
+      return
+    }
+
+    updateResourceLocation(oldValue, newValue)
+    setResourceLocations(getAllResourceLocations())
+    await fetchResources()
+
+    if (selectedLocation.toLowerCase() === oldValue.toLowerCase()) {
+      setSelectedLocation(newValue)
+    }
+
+    if (form.location.toLowerCase() === oldValue.toLowerCase()) {
+      setForm({ ...form, location: newValue })
+    }
+
+    showToast('Resource location updated successfully.')
+    cancelLocationEdit()
+  }
+
+  const handleDeleteLocation = (location) => {
+    if (!confirm(`Delete resource location "${location}"?`)) return
+
+    deleteResourceLocation(location)
+    setResourceLocations(getAllResourceLocations())
+
+    if (selectedLocation.toLowerCase() === location.toLowerCase()) {
+      setSelectedLocation('OTHER')
+      setOtherLocation(location)
+      setForm({ ...form, location })
+    }
+
+    if (locationEditor.original.toLowerCase() === location.toLowerCase()) {
+      cancelLocationEdit()
+    }
+
+    showToast('Resource location deleted successfully.')
+  }
+
+  // Retrieve resources from the API and update loading state.
   const fetchResources = async () => {
     try {
       const res = await api.get('/api/resources')
       setResources(res.data)
     } catch (err) {
       console.error(err)
+      showToast('Failed to load resources.', 'error')
     } finally {
       setLoading(false)
     }
   }
 
+  // Validate input, normalize custom fields, then create/update the resource.
   const handleSubmit = async (e) => {
     e.preventDefault()
     setFormError('')
@@ -100,13 +325,17 @@ export default function Facilities() {
       return
     }
 
-    if (!form.capacity || form.capacity === '') {
+    const isOtherType = selectedType === 'OTHER'
+    const shouldRequireCapacity =
+      !isOtherType && (!editingResource || editingResource.capacity !== null)
+
+    if (shouldRequireCapacity && (!form.capacity || form.capacity === '')) {
       setFormError('Capacity is required')
       return
     }
 
-    // Validate capacity is a positive number
-    if (isNaN(form.capacity) || parseFloat(form.capacity) < 0) {
+    // Validate capacity only when provided.
+    if (form.capacity !== '' && (isNaN(form.capacity) || parseFloat(form.capacity) <= 0)) {
       setFormError('Capacity must be a valid positive number')
       return
     }
@@ -139,6 +368,7 @@ export default function Facilities() {
     try {
       let payload = {
         ...form,
+        capacity: form.capacity === '' ? null : Number(form.capacity),
         availabilityWindows: formatAvailability(availabilityTemplate)
       }
 
@@ -162,8 +392,10 @@ export default function Facilities() {
 
       if (editingResource) {
         await api.put(`/api/resources/${editingResource.id}`, payload)
+        showToast('Resource updated successfully.')
       } else {
         await api.post('/api/resources', payload)
+        showToast('Resource created successfully.')
       }
 
       fetchResources()
@@ -171,19 +403,33 @@ export default function Facilities() {
     } catch (err) {
       console.error(err)
       setFormError('Failed to save resource. Please try again.')
+      showToast('Failed to save resource.', 'error')
     }
   }
 
-  const handleDelete = async (id) => {
-    if (!confirm('Delete this resource?')) return
+  // Open custom confirmation popup before delete action.
+  const promptDelete = (resource) => {
+    setDeleteTarget(resource)
+  }
+
+  // Delete a resource after custom confirmation.
+  const handleDelete = async () => {
+    if (!deleteTarget) return
+
     try {
-      await api.delete(`/api/resources/${id}`)
+      await api.delete(`/api/resources/${deleteTarget.id}`)
+      showToast('Resource deleted successfully.')
       fetchResources()
     } catch (err) {
       console.error(err)
+      const message = err.response?.data?.message || 'Failed to delete resource.'
+      showToast(message, 'error')
+    } finally {
+      setDeleteTarget(null)
     }
   }
 
+  // Populate form with selected resource and preserve unknown values as custom entries.
   const handleEdit = (resource) => {
     const availableTypes = getAllResourceTypes()
     const matchedType = availableTypes.find(
@@ -235,6 +481,7 @@ export default function Facilities() {
     setShowForm(true)
   }
 
+  // Reset form state to defaults when closing modal or after successful save.
   const resetForm = () => {
     setShowForm(false)
     setEditingResource(null)
@@ -249,6 +496,7 @@ export default function Facilities() {
     setForm({ name: '', type: '', capacity: '', location: '', availabilityWindows: '', status: 'ACTIVE', description: '' })
   }
 
+  // Client-side filtering shown in the resource grid.
   const filtered = resources.filter(r =>
     (!filter.type || r.type.toLowerCase().includes(filter.type.toLowerCase())) &&
     (!filter.location || r.location.toLowerCase().includes(filter.location.toLowerCase())) &&
@@ -258,6 +506,22 @@ export default function Facilities() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {toast.show && (
+        <div className="fixed right-4 top-4 z-[70] w-full max-w-sm">
+          <div
+            className={`rounded-xl border px-4 py-3 shadow-lg backdrop-blur-sm ${toast.type === 'error'
+              ? 'border-red-200 bg-red-50 text-red-800'
+              : 'border-emerald-200 bg-emerald-50 text-emerald-800'
+              }`}
+            role="status"
+            aria-live="polite"
+          >
+            <p className="text-sm font-semibold">{toast.type === 'error' ? 'Action failed' : 'Success'}</p>
+            <p className="mt-1 text-sm">{toast.message}</p>
+          </div>
+        </div>
+      )}
+
       <Navbar />
       <div className="max-w-6xl mx-auto px-6 py-8">
         <div className="flex justify-between items-center mb-6">
@@ -267,6 +531,7 @@ export default function Facilities() {
           </div>
           {user?.role === 'ADMIN' && (
             <button onClick={() => {
+              // Refresh options each time the modal opens.
               setResourceTypes(getAllResourceTypes())
               setResourceLocations(getAllResourceLocations())
               setAvailabilityTemplate({ days: '', fromTime: '', toTime: '' })
@@ -277,6 +542,182 @@ export default function Facilities() {
             </button>
           )}
         </div>
+
+        {user?.role === 'ADMIN' && (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-6">
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <div>
+                <h2 className="text-lg font-bold text-gray-800">Manage Resource Types</h2>
+                <p className="text-sm text-gray-500">Rename or remove types used in the resource dropdowns.</p>
+              </div>
+              <div className="flex items-center gap-2">
+                {typeEditor.original && (
+                  <button
+                    type="button"
+                    onClick={cancelTypeEdit}
+                    className="text-sm text-gray-500 hover:text-gray-700"
+                  >
+                    Cancel edit
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setIsTypePanelCollapsed((prev) => !prev)}
+                  className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                  aria-expanded={!isTypePanelCollapsed}
+                >
+                  {isTypePanelCollapsed ? 'Expand' : 'Minimize'}
+                </button>
+              </div>
+            </div>
+
+            {!isTypePanelCollapsed && (
+              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                {resourceTypes.map((type) => {
+                  const isEditing = typeEditor.original.toLowerCase() === type.toLowerCase()
+
+                  return (
+                    <div key={type} className="rounded-xl border border-gray-200 p-4 bg-gray-50">
+                      {isEditing ? (
+                        <div className="space-y-3">
+                          <input
+                            value={typeEditor.value}
+                            onChange={(e) => setTypeEditor({ ...typeEditor, value: e.target.value })}
+                            className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100"
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={commitTypeEdit}
+                              className="flex-1 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                            >
+                              Save
+                            </button>
+                            <button
+                              type="button"
+                              onClick={cancelTypeEdit}
+                              className="flex-1 rounded-lg bg-white px-3 py-2 text-sm font-medium text-gray-700 border border-gray-200 hover:bg-gray-50"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="text-sm font-medium text-gray-800">{type}</p>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => startTypeEdit(type)}
+                              className="rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-100"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteType(type)}
+                              className="rounded-lg bg-red-50 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-100"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {user?.role === 'ADMIN' && (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-6">
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <div>
+                <h2 className="text-lg font-bold text-gray-800">Manage Resource Locations</h2>
+                <p className="text-sm text-gray-500">Rename or remove locations used in the dropdowns.</p>
+              </div>
+              <div className="flex items-center gap-2">
+                {locationEditor.original && (
+                  <button
+                    type="button"
+                    onClick={cancelLocationEdit}
+                    className="text-sm text-gray-500 hover:text-gray-700"
+                  >
+                    Cancel edit
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setIsLocationPanelCollapsed((prev) => !prev)}
+                  className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                  aria-expanded={!isLocationPanelCollapsed}
+                >
+                  {isLocationPanelCollapsed ? 'Expand' : 'Minimize'}
+                </button>
+              </div>
+            </div>
+
+            {!isLocationPanelCollapsed && (
+              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                {resourceLocations.map((location) => {
+                  const isEditing = locationEditor.original.toLowerCase() === location.toLowerCase()
+
+                  return (
+                    <div key={location} className="rounded-xl border border-gray-200 p-4 bg-gray-50">
+                      {isEditing ? (
+                        <div className="space-y-3">
+                          <input
+                            value={locationEditor.value}
+                            onChange={(e) => setLocationEditor({ ...locationEditor, value: e.target.value })}
+                            className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100"
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={commitLocationEdit}
+                              className="flex-1 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                            >
+                              Save
+                            </button>
+                            <button
+                              type="button"
+                              onClick={cancelLocationEdit}
+                              className="flex-1 rounded-lg bg-white px-3 py-2 text-sm font-medium text-gray-700 border border-gray-200 hover:bg-gray-50"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="text-sm font-medium text-gray-800">{location}</p>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => startLocationEdit(location)}
+                              className="rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-100"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteLocation(location)}
+                              className="rounded-lg bg-red-50 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-100"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Filters */}
         <div className="bg-white rounded-2xl p-4 shadow-sm mb-6 flex gap-4 flex-wrap border border-gray-100">
@@ -337,7 +778,7 @@ export default function Facilities() {
                       className="flex-1 text-sm bg-blue-50 text-blue-600 px-3 py-2 rounded-xl hover:bg-blue-100 font-medium">
                       Edit
                     </button>
-                    <button onClick={() => handleDelete(r.id)}
+                    <button onClick={() => promptDelete(r)}
                       className="flex-1 text-sm bg-red-50 text-red-500 px-3 py-2 rounded-xl hover:bg-red-100 font-medium">
                       Delete
                     </button>
@@ -361,8 +802,9 @@ export default function Facilities() {
           <div className="bg-white rounded-2xl p-8 w-full max-w-lg shadow-2xl">
             <h2 className="text-xl font-bold mb-6 text-gray-800">{editingResource ? 'Edit Resource' : 'Add New Resource'}</h2>
             {formError && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-                {formError}
+              <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 shadow-sm" role="alert" aria-live="assertive">
+                <p className="font-semibold">Please fix this issue</p>
+                <p className="mt-1">{formError}</p>
               </div>
             )}
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -373,8 +815,9 @@ export default function Facilities() {
                 onChange={e => {
                   const value = e.target.value
                   setSelectedType(value)
+                  // Keep `form.type` in sync with selected/custom type value.
                   if (value === 'OTHER') {
-                    setForm({ ...form, type: otherType.trim() })
+                    setForm({ ...form, type: otherType.trim(), capacity: '' })
                   } else {
                     setOtherType('')
                     setForm({ ...form, type: value })
@@ -396,10 +839,18 @@ export default function Facilities() {
                   }}
                   className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-100" />
               )}
-              <div className="grid grid-cols-2 gap-4">
-                <input required placeholder="Capacity" type="number" min="0" value={form.capacity}
-                  onChange={e => setForm({ ...form, capacity: e.target.value })}
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-100" />
+              <div className={`grid gap-4 ${selectedType === 'OTHER' ? 'grid-cols-1' : 'grid-cols-2'}`}>
+                {selectedType !== 'OTHER' && (
+                  <input
+                    required={!editingResource || editingResource.capacity !== null}
+                    placeholder={!editingResource || editingResource.capacity !== null ? 'Capacity' : 'Capacity (optional)'}
+                    type="number"
+                    min="1"
+                    value={form.capacity}
+                    onChange={e => setForm({ ...form, capacity: e.target.value })}
+                    className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                  />
+                )}
                 <select required value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}
                   className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-100">
                   <option value="">Select Status</option>
@@ -407,10 +858,14 @@ export default function Facilities() {
                   <option value="OUT_OF_SERVICE">Out of Service</option>
                 </select>
               </div>
+              {selectedType === 'OTHER' && (
+                <p className="text-xs text-amber-600">Capacity is not required for custom resource types.</p>
+              )}
               <select required value={selectedLocation}
                 onChange={e => {
                   const value = e.target.value
                   setSelectedLocation(value)
+                  // Keep `form.location` in sync with selected/custom location value.
                   if (value === 'OTHER') {
                     setForm({ ...form, location: otherLocation.trim() })
                   } else {
@@ -467,6 +922,36 @@ export default function Facilities() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete confirmation popup */}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <h3 className="text-lg font-bold text-gray-800">Delete Resource</h3>
+            <p className="mt-2 text-sm text-gray-600">
+              Are you sure you want to delete
+              <span className="font-semibold text-gray-800"> {deleteTarget.name}</span>?
+              This action cannot be undone.
+            </p>
+            <div className="mt-6 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setDeleteTarget(null)}
+                className="flex-1 rounded-xl bg-gray-100 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-200"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDelete}
+                className="flex-1 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-red-700"
+              >
+                Delete
+              </button>
+            </div>
           </div>
         </div>
       )}
