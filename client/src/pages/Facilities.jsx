@@ -2,10 +2,17 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import Navbar from '../components/Navbar'
 import api from '../api/axios'
-import { getAllResourceTypes, saveCustomResourceType } from '../constants/resourceTypes'
+import {
+  getAllResourceTypes,
+  saveCustomResourceType,
+  updateResourceType,
+  deleteResourceType
+} from '../constants/resourceTypes'
 import {
   getAllResourceLocations,
-  saveCustomResourceLocation
+  saveCustomResourceLocation,
+  updateResourceLocation,
+  deleteResourceLocation
 } from '../constants/resourceLocations'
 
 export default function Facilities() {
@@ -18,6 +25,10 @@ export default function Facilities() {
   const [editingResource, setEditingResource] = useState(null)
   const [resourceTypes, setResourceTypes] = useState([])
   const [resourceLocations, setResourceLocations] = useState([])
+  const [typeEditor, setTypeEditor] = useState({ original: '', value: '' })
+  const [locationEditor, setLocationEditor] = useState({ original: '', value: '' })
+  const [isTypePanelCollapsed, setIsTypePanelCollapsed] = useState(false)
+  const [isLocationPanelCollapsed, setIsLocationPanelCollapsed] = useState(false)
   const [selectedType, setSelectedType] = useState('')
   const [otherType, setOtherType] = useState('')
   const [selectedLocation, setSelectedLocation] = useState('')
@@ -76,6 +87,24 @@ export default function Facilities() {
     setResourceLocations(getAllResourceLocations())
   }, [])
 
+  useEffect(() => {
+    const handleTypesChanged = () => {
+      setResourceTypes(getAllResourceTypes())
+    }
+
+    window.addEventListener('resource-types-changed', handleTypesChanged)
+    return () => window.removeEventListener('resource-types-changed', handleTypesChanged)
+  }, [])
+
+  useEffect(() => {
+    const handleLocationsChanged = () => {
+      setResourceLocations(getAllResourceLocations())
+    }
+
+    window.addEventListener('resource-locations-changed', handleLocationsChanged)
+    return () => window.removeEventListener('resource-locations-changed', handleLocationsChanged)
+  }, [])
+
   // Auto-hide popup messages after a short delay.
   useEffect(() => {
     if (!toast.show) return undefined
@@ -89,6 +118,128 @@ export default function Facilities() {
 
   const showToast = (message, type = 'success') => {
     setToast({ show: true, type, message })
+  }
+
+  const startTypeEdit = (type) => {
+    setTypeEditor({ original: type, value: type })
+  }
+
+  const cancelTypeEdit = () => {
+    setTypeEditor({ original: '', value: '' })
+  }
+
+  const startLocationEdit = (location) => {
+    setLocationEditor({ original: location, value: location })
+  }
+
+  const cancelLocationEdit = () => {
+    setLocationEditor({ original: '', value: '' })
+  }
+
+  const commitTypeEdit = () => {
+    const oldValue = typeEditor.original.trim()
+    const newValue = typeEditor.value.trim()
+
+    if (!oldValue) return
+    if (!newValue) {
+      showToast('Resource type name is required.', 'error')
+      return
+    }
+
+    const duplicate = resourceTypes.some(
+      (type) => type.toLowerCase() === newValue.toLowerCase() && type.toLowerCase() !== oldValue.toLowerCase()
+    )
+
+    if (duplicate) {
+      showToast('That resource type already exists.', 'error')
+      return
+    }
+
+    updateResourceType(oldValue, newValue)
+    setResourceTypes(getAllResourceTypes())
+
+    if (selectedType.toLowerCase() === oldValue.toLowerCase()) {
+      setSelectedType(newValue)
+    }
+
+    if (form.type.toLowerCase() === oldValue.toLowerCase()) {
+      setForm({ ...form, type: newValue })
+    }
+
+    showToast('Resource type updated successfully.')
+    cancelTypeEdit()
+  }
+
+  const handleDeleteType = (type) => {
+    if (!confirm(`Delete resource type "${type}"?`)) return
+
+    deleteResourceType(type)
+    setResourceTypes(getAllResourceTypes())
+
+    if (selectedType.toLowerCase() === type.toLowerCase()) {
+      setSelectedType('OTHER')
+      setOtherType(type)
+      setForm({ ...form, type })
+    }
+
+    if (typeEditor.original.toLowerCase() === type.toLowerCase()) {
+      cancelTypeEdit()
+    }
+
+    showToast('Resource type deleted successfully.')
+  }
+
+  const commitLocationEdit = () => {
+    const oldValue = locationEditor.original.trim()
+    const newValue = locationEditor.value.trim()
+
+    if (!oldValue) return
+    if (!newValue) {
+      showToast('Resource location name is required.', 'error')
+      return
+    }
+
+    const duplicate = resourceLocations.some(
+      (location) => location.toLowerCase() === newValue.toLowerCase() && location.toLowerCase() !== oldValue.toLowerCase()
+    )
+
+    if (duplicate) {
+      showToast('That resource location already exists.', 'error')
+      return
+    }
+
+    updateResourceLocation(oldValue, newValue)
+    setResourceLocations(getAllResourceLocations())
+
+    if (selectedLocation.toLowerCase() === oldValue.toLowerCase()) {
+      setSelectedLocation(newValue)
+    }
+
+    if (form.location.toLowerCase() === oldValue.toLowerCase()) {
+      setForm({ ...form, location: newValue })
+    }
+
+    showToast('Resource location updated successfully.')
+    cancelLocationEdit()
+  }
+
+  const handleDeleteLocation = (location) => {
+    if (!confirm(`Delete resource location "${location}"?`)) return
+
+    deleteResourceLocation(location)
+    setResourceLocations(getAllResourceLocations())
+
+    if (selectedLocation.toLowerCase() === location.toLowerCase()) {
+      setSelectedLocation('OTHER')
+      setOtherLocation(location)
+      setForm({ ...form, location })
+    }
+
+    if (locationEditor.original.toLowerCase() === location.toLowerCase()) {
+      cancelLocationEdit()
+    }
+
+    showToast('Resource location deleted successfully.')
   }
 
   // Retrieve resources from the API and update loading state.
@@ -125,13 +276,15 @@ export default function Facilities() {
       return
     }
 
-    if (!form.capacity || form.capacity === '') {
+    const isOtherType = selectedType === 'OTHER'
+
+    if (!isOtherType && (!form.capacity || form.capacity === '')) {
       setFormError('Capacity is required')
       return
     }
 
-    // Validate capacity is a positive number
-    if (isNaN(form.capacity) || parseFloat(form.capacity) < 0) {
+    // Validate capacity only when provided.
+    if (form.capacity !== '' && (isNaN(form.capacity) || parseFloat(form.capacity) <= 0)) {
       setFormError('Capacity must be a valid positive number')
       return
     }
@@ -164,6 +317,7 @@ export default function Facilities() {
     try {
       let payload = {
         ...form,
+        capacity: form.capacity === '' ? null : Number(form.capacity),
         availabilityWindows: formatAvailability(availabilityTemplate)
       }
 
@@ -338,6 +492,182 @@ export default function Facilities() {
           )}
         </div>
 
+        {user?.role === 'ADMIN' && (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-6">
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <div>
+                <h2 className="text-lg font-bold text-gray-800">Manage Resource Types</h2>
+                <p className="text-sm text-gray-500">Rename or remove types used in the resource dropdowns.</p>
+              </div>
+              <div className="flex items-center gap-2">
+                {typeEditor.original && (
+                  <button
+                    type="button"
+                    onClick={cancelTypeEdit}
+                    className="text-sm text-gray-500 hover:text-gray-700"
+                  >
+                    Cancel edit
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setIsTypePanelCollapsed((prev) => !prev)}
+                  className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                  aria-expanded={!isTypePanelCollapsed}
+                >
+                  {isTypePanelCollapsed ? 'Expand' : 'Minimize'}
+                </button>
+              </div>
+            </div>
+
+            {!isTypePanelCollapsed && (
+              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                {resourceTypes.map((type) => {
+                  const isEditing = typeEditor.original.toLowerCase() === type.toLowerCase()
+
+                  return (
+                    <div key={type} className="rounded-xl border border-gray-200 p-4 bg-gray-50">
+                      {isEditing ? (
+                        <div className="space-y-3">
+                          <input
+                            value={typeEditor.value}
+                            onChange={(e) => setTypeEditor({ ...typeEditor, value: e.target.value })}
+                            className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100"
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={commitTypeEdit}
+                              className="flex-1 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                            >
+                              Save
+                            </button>
+                            <button
+                              type="button"
+                              onClick={cancelTypeEdit}
+                              className="flex-1 rounded-lg bg-white px-3 py-2 text-sm font-medium text-gray-700 border border-gray-200 hover:bg-gray-50"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="text-sm font-medium text-gray-800">{type}</p>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => startTypeEdit(type)}
+                              className="rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-100"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteType(type)}
+                              className="rounded-lg bg-red-50 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-100"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {user?.role === 'ADMIN' && (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-6">
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <div>
+                <h2 className="text-lg font-bold text-gray-800">Manage Resource Locations</h2>
+                <p className="text-sm text-gray-500">Rename or remove locations used in the dropdowns.</p>
+              </div>
+              <div className="flex items-center gap-2">
+                {locationEditor.original && (
+                  <button
+                    type="button"
+                    onClick={cancelLocationEdit}
+                    className="text-sm text-gray-500 hover:text-gray-700"
+                  >
+                    Cancel edit
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setIsLocationPanelCollapsed((prev) => !prev)}
+                  className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                  aria-expanded={!isLocationPanelCollapsed}
+                >
+                  {isLocationPanelCollapsed ? 'Expand' : 'Minimize'}
+                </button>
+              </div>
+            </div>
+
+            {!isLocationPanelCollapsed && (
+              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                {resourceLocations.map((location) => {
+                  const isEditing = locationEditor.original.toLowerCase() === location.toLowerCase()
+
+                  return (
+                    <div key={location} className="rounded-xl border border-gray-200 p-4 bg-gray-50">
+                      {isEditing ? (
+                        <div className="space-y-3">
+                          <input
+                            value={locationEditor.value}
+                            onChange={(e) => setLocationEditor({ ...locationEditor, value: e.target.value })}
+                            className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100"
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={commitLocationEdit}
+                              className="flex-1 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                            >
+                              Save
+                            </button>
+                            <button
+                              type="button"
+                              onClick={cancelLocationEdit}
+                              className="flex-1 rounded-lg bg-white px-3 py-2 text-sm font-medium text-gray-700 border border-gray-200 hover:bg-gray-50"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="text-sm font-medium text-gray-800">{location}</p>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => startLocationEdit(location)}
+                              className="rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-100"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteLocation(location)}
+                              className="rounded-lg bg-red-50 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-100"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Filters */}
         <div className="bg-white rounded-2xl p-4 shadow-sm mb-6 flex gap-4 flex-wrap border border-gray-100">
           <input placeholder="Filter by type..." value={filter.type}
@@ -436,7 +766,7 @@ export default function Facilities() {
                   setSelectedType(value)
                   // Keep `form.type` in sync with selected/custom type value.
                   if (value === 'OTHER') {
-                    setForm({ ...form, type: otherType.trim() })
+                    setForm({ ...form, type: otherType.trim(), capacity: '' })
                   } else {
                     setOtherType('')
                     setForm({ ...form, type: value })
@@ -458,10 +788,12 @@ export default function Facilities() {
                   }}
                   className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-100" />
               )}
-              <div className="grid grid-cols-2 gap-4">
-                <input required placeholder="Capacity" type="number" min="0" value={form.capacity}
-                  onChange={e => setForm({ ...form, capacity: e.target.value })}
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-100" />
+              <div className={`grid gap-4 ${selectedType === 'OTHER' ? 'grid-cols-1' : 'grid-cols-2'}`}>
+                {selectedType !== 'OTHER' && (
+                  <input required placeholder="Capacity" type="number" min="1" value={form.capacity}
+                    onChange={e => setForm({ ...form, capacity: e.target.value })}
+                    className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-100" />
+                )}
                 <select required value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}
                   className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-100">
                   <option value="">Select Status</option>
@@ -469,6 +801,9 @@ export default function Facilities() {
                   <option value="OUT_OF_SERVICE">Out of Service</option>
                 </select>
               </div>
+              {selectedType === 'OTHER' && (
+                <p className="text-xs text-amber-600">Capacity is not required for custom resource types.</p>
+              )}
               <select required value={selectedLocation}
                 onChange={e => {
                   const value = e.target.value
