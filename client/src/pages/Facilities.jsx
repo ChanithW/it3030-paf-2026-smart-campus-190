@@ -10,6 +10,8 @@ import {
 
 export default function Facilities() {
   const { user } = useAuth()
+
+  // Page state for resources, filters, and modal/form behavior.
   const [resources, setResources] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -43,8 +45,10 @@ export default function Facilities() {
     'All Week'
   ]
 
+  // Serialize availability fields into a single backend-friendly string.
   const formatAvailability = ({ days, fromTime, toTime }) => `${days.trim()} | ${fromTime} to ${toTime}`
 
+  // Parse stored availability text when populating edit form.
   const parseAvailability = (availability = '') => {
     const [daysPart, timePart] = availability.split('|')
     if (!daysPart || !timePart) {
@@ -63,12 +67,14 @@ export default function Facilities() {
     }
   }
 
+  // Load resources and known type/location options on first render.
   useEffect(() => {
     fetchResources()
     setResourceTypes(getAllResourceTypes())
     setResourceLocations(getAllResourceLocations())
   }, [])
 
+  // Retrieve resources from the API and update loading state.
   const fetchResources = async () => {
     try {
       const res = await api.get('/api/resources')
@@ -80,6 +86,7 @@ export default function Facilities() {
     }
   }
 
+  // Validate input, normalize custom fields, then create/update the resource.
   const handleSubmit = async (e) => {
     e.preventDefault()
     setFormError('')
@@ -174,6 +181,7 @@ export default function Facilities() {
     }
   }
 
+  // Delete a resource after explicit user confirmation.
   const handleDelete = async (id) => {
     if (!confirm('Delete this resource?')) return
     try {
@@ -184,6 +192,7 @@ export default function Facilities() {
     }
   }
 
+  // Populate form with selected resource and preserve unknown values as custom entries.
   const handleEdit = (resource) => {
     const availableTypes = getAllResourceTypes()
     const matchedType = availableTypes.find(
@@ -235,6 +244,7 @@ export default function Facilities() {
     setShowForm(true)
   }
 
+  // Reset form state to defaults when closing modal or after successful save.
   const resetForm = () => {
     setShowForm(false)
     setEditingResource(null)
@@ -249,6 +259,7 @@ export default function Facilities() {
     setForm({ name: '', type: '', capacity: '', location: '', availabilityWindows: '', status: 'ACTIVE', description: '' })
   }
 
+  // Client-side filtering shown in the resource grid.
   const filtered = resources.filter(r =>
     (!filter.type || r.type.toLowerCase().includes(filter.type.toLowerCase())) &&
     (!filter.location || r.location.toLowerCase().includes(filter.location.toLowerCase())) &&
@@ -267,6 +278,7 @@ export default function Facilities() {
           </div>
           {user?.role === 'ADMIN' && (
             <button onClick={() => {
+              // Refresh options each time the modal opens.
               setResourceTypes(getAllResourceTypes())
               setResourceLocations(getAllResourceLocations())
               setAvailabilityTemplate({ days: '', fromTime: '', toTime: '' })
@@ -373,6 +385,7 @@ export default function Facilities() {
                 onChange={e => {
                   const value = e.target.value
                   setSelectedType(value)
+                  // Keep `form.type` in sync with selected/custom type value.
                   if (value === 'OTHER') {
                     setForm({ ...form, type: otherType.trim() })
                   } else {
@@ -411,6 +424,7 @@ export default function Facilities() {
                 onChange={e => {
                   const value = e.target.value
                   setSelectedLocation(value)
+                  // Keep `form.location` in sync with selected/custom location value.
                   if (value === 'OTHER') {
                     setForm({ ...form, location: otherLocation.trim() })
                   } else {
