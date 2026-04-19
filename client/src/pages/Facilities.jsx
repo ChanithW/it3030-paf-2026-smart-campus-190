@@ -27,6 +27,8 @@ export default function Facilities() {
   const [resourceLocations, setResourceLocations] = useState([])
   const [typeEditor, setTypeEditor] = useState({ original: '', value: '' })
   const [locationEditor, setLocationEditor] = useState({ original: '', value: '' })
+  const [isTypePanelCollapsed, setIsTypePanelCollapsed] = useState(false)
+  const [isLocationPanelCollapsed, setIsLocationPanelCollapsed] = useState(false)
   const [selectedType, setSelectedType] = useState('')
   const [otherType, setOtherType] = useState('')
   const [selectedLocation, setSelectedLocation] = useState('')
@@ -497,72 +499,84 @@ export default function Facilities() {
                 <h2 className="text-lg font-bold text-gray-800">Manage Resource Types</h2>
                 <p className="text-sm text-gray-500">Rename or remove types used in the resource dropdowns.</p>
               </div>
-              {typeEditor.original && (
+              <div className="flex items-center gap-2">
+                {typeEditor.original && (
+                  <button
+                    type="button"
+                    onClick={cancelTypeEdit}
+                    className="text-sm text-gray-500 hover:text-gray-700"
+                  >
+                    Cancel edit
+                  </button>
+                )}
                 <button
                   type="button"
-                  onClick={cancelTypeEdit}
-                  className="text-sm text-gray-500 hover:text-gray-700"
+                  onClick={() => setIsTypePanelCollapsed((prev) => !prev)}
+                  className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                  aria-expanded={!isTypePanelCollapsed}
                 >
-                  Cancel edit
+                  {isTypePanelCollapsed ? 'Expand' : 'Minimize'}
                 </button>
-              )}
+              </div>
             </div>
 
-            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-              {resourceTypes.map((type) => {
-                const isEditing = typeEditor.original.toLowerCase() === type.toLowerCase()
+            {!isTypePanelCollapsed && (
+              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                {resourceTypes.map((type) => {
+                  const isEditing = typeEditor.original.toLowerCase() === type.toLowerCase()
 
-                return (
-                  <div key={type} className="rounded-xl border border-gray-200 p-4 bg-gray-50">
-                    {isEditing ? (
-                      <div className="space-y-3">
-                        <input
-                          value={typeEditor.value}
-                          onChange={(e) => setTypeEditor({ ...typeEditor, value: e.target.value })}
-                          className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100"
-                        />
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            onClick={commitTypeEdit}
-                            className="flex-1 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
-                          >
-                            Save
-                          </button>
-                          <button
-                            type="button"
-                            onClick={cancelTypeEdit}
-                            className="flex-1 rounded-lg bg-white px-3 py-2 text-sm font-medium text-gray-700 border border-gray-200 hover:bg-gray-50"
-                          >
-                            Cancel
-                          </button>
+                  return (
+                    <div key={type} className="rounded-xl border border-gray-200 p-4 bg-gray-50">
+                      {isEditing ? (
+                        <div className="space-y-3">
+                          <input
+                            value={typeEditor.value}
+                            onChange={(e) => setTypeEditor({ ...typeEditor, value: e.target.value })}
+                            className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100"
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={commitTypeEdit}
+                              className="flex-1 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                            >
+                              Save
+                            </button>
+                            <button
+                              type="button"
+                              onClick={cancelTypeEdit}
+                              className="flex-1 rounded-lg bg-white px-3 py-2 text-sm font-medium text-gray-700 border border-gray-200 hover:bg-gray-50"
+                            >
+                              Cancel
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="text-sm font-medium text-gray-800">{type}</p>
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            onClick={() => startTypeEdit(type)}
-                            className="rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-100"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteType(type)}
-                            className="rounded-lg bg-red-50 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-100"
-                          >
-                            Delete
-                          </button>
+                      ) : (
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="text-sm font-medium text-gray-800">{type}</p>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => startTypeEdit(type)}
+                              className="rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-100"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteType(type)}
+                              className="rounded-lg bg-red-50 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-100"
+                            >
+                              Delete
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
         )}
 
@@ -573,72 +587,84 @@ export default function Facilities() {
                 <h2 className="text-lg font-bold text-gray-800">Manage Resource Locations</h2>
                 <p className="text-sm text-gray-500">Rename or remove locations used in the dropdowns.</p>
               </div>
-              {locationEditor.original && (
+              <div className="flex items-center gap-2">
+                {locationEditor.original && (
+                  <button
+                    type="button"
+                    onClick={cancelLocationEdit}
+                    className="text-sm text-gray-500 hover:text-gray-700"
+                  >
+                    Cancel edit
+                  </button>
+                )}
                 <button
                   type="button"
-                  onClick={cancelLocationEdit}
-                  className="text-sm text-gray-500 hover:text-gray-700"
+                  onClick={() => setIsLocationPanelCollapsed((prev) => !prev)}
+                  className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                  aria-expanded={!isLocationPanelCollapsed}
                 >
-                  Cancel edit
+                  {isLocationPanelCollapsed ? 'Expand' : 'Minimize'}
                 </button>
-              )}
+              </div>
             </div>
 
-            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-              {resourceLocations.map((location) => {
-                const isEditing = locationEditor.original.toLowerCase() === location.toLowerCase()
+            {!isLocationPanelCollapsed && (
+              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                {resourceLocations.map((location) => {
+                  const isEditing = locationEditor.original.toLowerCase() === location.toLowerCase()
 
-                return (
-                  <div key={location} className="rounded-xl border border-gray-200 p-4 bg-gray-50">
-                    {isEditing ? (
-                      <div className="space-y-3">
-                        <input
-                          value={locationEditor.value}
-                          onChange={(e) => setLocationEditor({ ...locationEditor, value: e.target.value })}
-                          className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100"
-                        />
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            onClick={commitLocationEdit}
-                            className="flex-1 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
-                          >
-                            Save
-                          </button>
-                          <button
-                            type="button"
-                            onClick={cancelLocationEdit}
-                            className="flex-1 rounded-lg bg-white px-3 py-2 text-sm font-medium text-gray-700 border border-gray-200 hover:bg-gray-50"
-                          >
-                            Cancel
-                          </button>
+                  return (
+                    <div key={location} className="rounded-xl border border-gray-200 p-4 bg-gray-50">
+                      {isEditing ? (
+                        <div className="space-y-3">
+                          <input
+                            value={locationEditor.value}
+                            onChange={(e) => setLocationEditor({ ...locationEditor, value: e.target.value })}
+                            className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100"
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={commitLocationEdit}
+                              className="flex-1 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                            >
+                              Save
+                            </button>
+                            <button
+                              type="button"
+                              onClick={cancelLocationEdit}
+                              className="flex-1 rounded-lg bg-white px-3 py-2 text-sm font-medium text-gray-700 border border-gray-200 hover:bg-gray-50"
+                            >
+                              Cancel
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="text-sm font-medium text-gray-800">{location}</p>
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            onClick={() => startLocationEdit(location)}
-                            className="rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-100"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteLocation(location)}
-                            className="rounded-lg bg-red-50 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-100"
-                          >
-                            Delete
-                          </button>
+                      ) : (
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="text-sm font-medium text-gray-800">{location}</p>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => startLocationEdit(location)}
+                              className="rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-100"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteLocation(location)}
+                              className="rounded-lg bg-red-50 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-100"
+                            >
+                              Delete
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
         )}
 
