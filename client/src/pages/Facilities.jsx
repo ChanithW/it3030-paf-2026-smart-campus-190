@@ -120,6 +120,17 @@ export default function Facilities() {
     setToast({ show: true, type, message })
   }
 
+  const buildResourcePayload = (resource, overrides = {}) => ({
+    name: resource.name,
+    type: resource.type,
+    capacity: resource.capacity ?? null,
+    location: resource.location,
+    availabilityWindows: resource.availabilityWindows || '',
+    status: resource.status,
+    description: resource.description || '',
+    ...overrides
+  })
+
   const startTypeEdit = (type) => {
     setTypeEditor({ original: type, value: type })
   }
@@ -136,7 +147,7 @@ export default function Facilities() {
     setLocationEditor({ original: '', value: '' })
   }
 
-  const commitTypeEdit = () => {
+  const commitTypeEdit = async () => {
     const oldValue = typeEditor.original.trim()
     const newValue = typeEditor.value.trim()
 
@@ -155,8 +166,27 @@ export default function Facilities() {
       return
     }
 
+    try {
+      const affectedResources = resources.filter(
+        (resource) => (resource.type || '').toLowerCase() === oldValue.toLowerCase()
+      )
+
+      if (affectedResources.length > 0) {
+        await Promise.all(
+          affectedResources.map((resource) =>
+            api.put(`/api/resources/${resource.id}`, buildResourcePayload(resource, { type: newValue }))
+          )
+        )
+      }
+    } catch (err) {
+      console.error(err)
+      showToast('Failed to update resources with the new type name.', 'error')
+      return
+    }
+
     updateResourceType(oldValue, newValue)
     setResourceTypes(getAllResourceTypes())
+    await fetchResources()
 
     if (selectedType.toLowerCase() === oldValue.toLowerCase()) {
       setSelectedType(newValue)
@@ -189,7 +219,7 @@ export default function Facilities() {
     showToast('Resource type deleted successfully.')
   }
 
-  const commitLocationEdit = () => {
+  const commitLocationEdit = async () => {
     const oldValue = locationEditor.original.trim()
     const newValue = locationEditor.value.trim()
 
@@ -208,8 +238,27 @@ export default function Facilities() {
       return
     }
 
+    try {
+      const affectedResources = resources.filter(
+        (resource) => (resource.location || '').toLowerCase() === oldValue.toLowerCase()
+      )
+
+      if (affectedResources.length > 0) {
+        await Promise.all(
+          affectedResources.map((resource) =>
+            api.put(`/api/resources/${resource.id}`, buildResourcePayload(resource, { location: newValue }))
+          )
+        )
+      }
+    } catch (err) {
+      console.error(err)
+      showToast('Failed to update resources with the new location name.', 'error')
+      return
+    }
+
     updateResourceLocation(oldValue, newValue)
     setResourceLocations(getAllResourceLocations())
+    await fetchResources()
 
     if (selectedLocation.toLowerCase() === oldValue.toLowerCase()) {
       setSelectedLocation(newValue)
@@ -277,8 +326,10 @@ export default function Facilities() {
     }
 
     const isOtherType = selectedType === 'OTHER'
+    const shouldRequireCapacity =
+      !isOtherType && (!editingResource || editingResource.capacity !== null)
 
-    if (!isOtherType && (!form.capacity || form.capacity === '')) {
+    if (shouldRequireCapacity && (!form.capacity || form.capacity === '')) {
       setFormError('Capacity is required')
       return
     }
@@ -790,9 +841,15 @@ export default function Facilities() {
               )}
               <div className={`grid gap-4 ${selectedType === 'OTHER' ? 'grid-cols-1' : 'grid-cols-2'}`}>
                 {selectedType !== 'OTHER' && (
-                  <input required placeholder="Capacity" type="number" min="1" value={form.capacity}
+                  <input
+                    required={!editingResource || editingResource.capacity !== null}
+                    placeholder={!editingResource || editingResource.capacity !== null ? 'Capacity' : 'Capacity (optional)'}
+                    type="number"
+                    min="1"
+                    value={form.capacity}
                     onChange={e => setForm({ ...form, capacity: e.target.value })}
-                    className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-100" />
+                    className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                  />
                 )}
                 <select required value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}
                   className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-100">
