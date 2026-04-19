@@ -58,9 +58,15 @@ export default function Login() {
 
           <div className="bg-white rounded-3xl shadow-xl p-10">
             <div className="mb-8">
-              <h2 className="text-3xl font-bold text-gray-800 mb-2">Welcome back</h2>
-              <p className="text-gray-500">Sign in to access your campus portal</p>
+              <h2 className="text-3xl font-bold text-gray-800 mb-2">Welcome</h2>
+              <p className="text-gray-500">Sign in or create an account to access your campus portal</p>
+              <div className="flex gap-2 mt-3">
+                <span className="text-xs bg-blue-50 text-blue-600 px-3 py-1 rounded-full">
+                  ✨ New users are registered automatically
+                </span>
+              </div>
             </div>
+
 
             <button
               onClick={login}
