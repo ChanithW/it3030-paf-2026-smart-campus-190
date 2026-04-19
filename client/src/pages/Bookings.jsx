@@ -3,6 +3,8 @@ import { useAuth } from '../context/AuthContext'
 import Navbar from '../components/Navbar'
 import api from '../api/axios'
 import { QRCodeSVG as QRCode } from 'qrcode.react'
+import { getAllResourceTypes } from '../constants/resourceTypes'
+import { getAllResourceLocations } from '../constants/resourceLocations'
 
 export default function Bookings() {
   const { user } = useAuth()
@@ -13,6 +15,8 @@ export default function Bookings() {
   const [filterStatus, setFilterStatus] = useState('')
   const [qrBooking, setQrBooking] = useState(null)
   const [selectedResourceType, setSelectedResourceType] = useState('')
+  const [resourceTypes, setResourceTypes] = useState([])
+  const [resourceLocations, setResourceLocations] = useState([])
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -23,6 +27,20 @@ export default function Bookings() {
   useEffect(() => {
     fetchBookings()
     fetchResources()
+    setResourceTypes(getAllResourceTypes())
+    setResourceLocations(getAllResourceLocations())
+  }, [])
+
+  useEffect(() => {
+    const handleTypesChanged = () => setResourceTypes(getAllResourceTypes())
+    window.addEventListener('resource-types-changed', handleTypesChanged)
+    return () => window.removeEventListener('resource-types-changed', handleTypesChanged)
+  }, [])
+
+  useEffect(() => {
+    const handleLocationsChanged = () => setResourceLocations(getAllResourceLocations())
+    window.addEventListener('resource-locations-changed', handleLocationsChanged)
+    return () => window.removeEventListener('resource-locations-changed', handleLocationsChanged)
   }, [])
 
   const fetchBookings = async () => {
@@ -99,7 +117,6 @@ export default function Bookings() {
   }
 
   const filtered = bookings.filter(b => !filterStatus || b.status === filterStatus)
-  const resourceTypes = [...new Set(resources.map(r => r.type).filter(Boolean))].sort()
   const visibleResources = selectedResourceType
     ? resources.filter(r => r.type === selectedResourceType)
     : resources
