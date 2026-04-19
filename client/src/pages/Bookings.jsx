@@ -286,7 +286,7 @@ export default function Bookings() {
                 onChange={e => setForm({ ...form, purpose: e.target.value })}
                 disabled={submitting}
                 className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-100 disabled:bg-gray-100" />
-              <input placeholder="Expected Attendees" type="number" value={form.expectedAttendees}
+              <input placeholder="Expected Attendees" type="number" min="1" value={form.expectedAttendees}
                 onChange={e => setForm({ ...form, expectedAttendees: e.target.value })}
                 disabled={submitting}
                 className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-100 disabled:bg-gray-100" />
