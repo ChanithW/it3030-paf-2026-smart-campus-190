@@ -121,6 +121,10 @@ export default function Bookings() {
     return `${year}-${month}-${day}T${hours}:${minutes}`
   }
 
+  const selectedResource = resources.find(r => r.id === form.resourceId)
+  const overCapacity = !!(selectedResource?.capacity && form.expectedAttendees &&
+    parseInt(form.expectedAttendees) > selectedResource.capacity)
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar />
@@ -286,21 +290,15 @@ export default function Bookings() {
                 onChange={e => setForm({ ...form, expectedAttendees: e.target.value })}
                 disabled={submitting}
                 className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-100 disabled:bg-gray-100" />
-              {form.resourceId && form.expectedAttendees && (() => {
-                const selectedResource = resources.find(r => r.id === form.resourceId)
-                if (selectedResource?.capacity && parseInt(form.expectedAttendees) > selectedResource.capacity) {
-                  return (
-                    <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-xl">
-                      <p className="text-yellow-700 text-sm font-medium">
-                        ⚠️ Only {selectedResource.capacity} spots available (you entered {form.expectedAttendees})
-                      </p>
-                    </div>
-                  )
-                }
-                return null
-              })()}
+              {overCapacity && (
+                <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-xl">
+                  <p className="text-yellow-700 text-sm font-medium">
+                    ⚠️ Only {selectedResource.capacity} spots available (you entered {form.expectedAttendees})
+                  </p>
+                </div>
+              )}
               <div className="flex gap-3 pt-2">
-                <button type="submit" disabled={submitting}
+                <button type="submit" disabled={submitting || overCapacity}
                   className="flex-1 bg-green-600 text-white py-3 rounded-xl hover:bg-green-700 font-medium disabled:bg-gray-400 disabled:cursor-not-allowed transition">
                   {submitting ? '⏳ Submitting...' : 'Submit Request'}
                 </button>
