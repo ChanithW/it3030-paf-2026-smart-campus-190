@@ -13,6 +13,9 @@ export default function Bookings() {
   const [filterStatus, setFilterStatus] = useState('')
   const [qrBooking, setQrBooking] = useState(null)
   const [selectedResourceType, setSelectedResourceType] = useState('')
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
+  const [submitting, setSubmitting] = useState(false)
   const [form, setForm] = useState({
     resourceId: '', startTime: '', endTime: '', purpose: '', expectedAttendees: ''
   })
@@ -45,14 +48,21 @@ export default function Bookings() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    setError('')
+    setSuccess('')
+    setSubmitting(true)
     try {
       await api.post('/api/bookings', form)
+      setSuccess('Booking request submitted successfully!')
       fetchBookings()
       setShowForm(false)
       setSelectedResourceType('')
       setForm({ resourceId: '', startTime: '', endTime: '', purpose: '', expectedAttendees: '' })
+      setTimeout(() => setSuccess(''), 3000)
     } catch (err) {
-      alert(err.response?.data?.message || 'Booking failed — time slot may be taken!')
+      setError(err.response?.data?.message || 'Booking failed — time slot may be taken!')
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -90,6 +100,14 @@ export default function Bookings() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {success && (
+        <div className="fixed right-4 top-4 z-[70] w-full max-w-sm">
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-800 shadow-lg">
+            <p className="text-sm font-semibold">Success</p>
+            <p className="mt-1 text-sm">{success}</p>
+          </div>
+        </div>
+      )}
       <Navbar />
       <div className="max-w-5xl mx-auto px-6 py-8">
         <div className="flex justify-between items-center mb-6">
@@ -197,6 +215,12 @@ export default function Bookings() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl p-8 w-full max-w-lg shadow-2xl">
             <h2 className="text-xl font-bold mb-6 text-gray-800">New Booking Request</h2>
+            {error && (
+              <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-red-800 shadow-sm" role="alert" aria-live="assertive">
+                <p className="text-sm font-semibold">Please fix this issue</p>
+                <p className="mt-1 text-sm">{error}</p>
+              </div>
+            )}
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="text-xs text-gray-500 font-medium">Resource Type</label>
@@ -249,13 +273,14 @@ export default function Bookings() {
                 onChange={e => setForm({ ...form, expectedAttendees: e.target.value })}
                 className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-100" />
               <div className="flex gap-3 pt-2">
-                <button type="submit"
-                  className="flex-1 bg-green-600 text-white py-3 rounded-xl hover:bg-green-700 font-medium">
-                  Submit Request
+                <button type="submit" disabled={submitting}
+                  className="flex-1 bg-green-600 text-white py-3 rounded-xl hover:bg-green-700 font-medium disabled:bg-gray-400 disabled:cursor-not-allowed">
+                  {submitting ? 'Submitting...' : 'Submit Request'}
                 </button>
                 <button type="button" onClick={() => {
                     setShowForm(false)
                     setSelectedResourceType('')
+                    setError('')
                   }}
                   className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl hover:bg-gray-200 font-medium">
                   Cancel
