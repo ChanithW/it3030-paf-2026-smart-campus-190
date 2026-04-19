@@ -20,6 +20,7 @@ export default function Tickets() {
   const [form, setForm] = useState({
     category: '', description: '', priority: 'MEDIUM', location: '', contactDetails: ''
   })
+  const [campusLocations, setCampusLocations] = useState([])
 
   const validateContact = (contact) => {
     const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/
@@ -27,7 +28,10 @@ export default function Tickets() {
     return emailRegex.test(contact) || phoneRegex.test(contact)
   }
 
-  useEffect(() => { fetchTickets() }, [])
+  useEffect(() => { 
+    fetchTickets() 
+    fetchLocations()
+  }, [])
 
   const fetchTickets = async () => {
     try {
@@ -40,6 +44,19 @@ export default function Tickets() {
       console.error(err)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchLocations = async () => {
+    try {
+      const res = await api.get('/api/resources')
+      // Extract unique locations and sort them
+      const uniqueLocs = [...new Set(res.data.map(r => r.location))]
+        .filter(Boolean)
+        .sort()
+      setCampusLocations(uniqueLocs)
+    } catch (err) {
+      console.error('Error fetching locations:', err)
     }
   }
 
@@ -304,9 +321,13 @@ export default function Tickets() {
                   <option value="HIGH">High Priority</option>
                   <option value="CRITICAL">Critical</option>
                 </select>
-                <input placeholder="Location" value={form.location}
-                  onChange={e => setForm({ ...form, location: e.target.value })}
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-orange-100" />
+                <select value={form.location} onChange={e => setForm({ ...form, location: e.target.value })}
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-orange-100">
+                  <option value="">Select Location</option>
+                  {campusLocations.map(loc => (
+                    <option key={loc} value={loc}>{loc}</option>
+                  ))}
+                </select>
               </div>
               <input required placeholder="Contact Details (Email or 10-digit Phone)" value={form.contactDetails}
                 onChange={e => setForm({ ...form, contactDetails: e.target.value })}
@@ -425,12 +446,16 @@ export default function Tickets() {
 
             {isEditing ? (
               <div className="mb-4">
-                <input
+                <select
                   className="w-full text-sm text-gray-500 border-b border-gray-100 focus:outline-none focus:border-orange-500 py-1"
                   value={editForm.location}
                   onChange={e => setEditForm({ ...editForm, location: e.target.value })}
-                  placeholder="Location"
-                />
+                >
+                  <option value="">Select Location</option>
+                  {campusLocations.map(loc => (
+                    <option key={loc} value={loc}>{loc}</option>
+                  ))}
+                </select>
               </div>
             ) : (
               selectedTicket.location && (
