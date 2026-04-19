@@ -10,8 +10,6 @@ import {
 
 export default function Facilities() {
   const { user } = useAuth()
-
-  // Core page state for data, UI toggles, and form handling.
   const [resources, setResources] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -45,10 +43,8 @@ export default function Facilities() {
     'All Week'
   ]
 
-  // Convert structured availability fields into backend-friendly display format.
   const formatAvailability = ({ days, fromTime, toTime }) => `${days.trim()} | ${fromTime} to ${toTime}`
 
-  // Parse saved availability string back into form fields when editing.
   const parseAvailability = (availability = '') => {
     const [daysPart, timePart] = availability.split('|')
     if (!daysPart || !timePart) {
@@ -67,14 +63,12 @@ export default function Facilities() {
     }
   }
 
-  // Initial data bootstrap for resources and selectable metadata.
   useEffect(() => {
     fetchResources()
     setResourceTypes(getAllResourceTypes())
     setResourceLocations(getAllResourceLocations())
   }, [])
 
-  // Fetch all resources from API and control loading state.
   const fetchResources = async () => {
     try {
       const res = await api.get('/api/resources')
@@ -86,7 +80,6 @@ export default function Facilities() {
     }
   }
 
-  // Validate input, normalize custom values, and create/update resource.
   const handleSubmit = async (e) => {
     e.preventDefault()
     setFormError('')
@@ -181,7 +174,6 @@ export default function Facilities() {
     }
   }
 
-  // Remove a resource after user confirmation.
   const handleDelete = async (id) => {
     if (!confirm('Delete this resource?')) return
     try {
@@ -192,7 +184,6 @@ export default function Facilities() {
     }
   }
 
-  // Load existing resource into form and map unknown type/location as custom values.
   const handleEdit = (resource) => {
     const availableTypes = getAllResourceTypes()
     const matchedType = availableTypes.find(
@@ -244,7 +235,6 @@ export default function Facilities() {
     setShowForm(true)
   }
 
-  // Clear form and restore defaults when canceling or after save.
   const resetForm = () => {
     setShowForm(false)
     setEditingResource(null)
@@ -259,7 +249,6 @@ export default function Facilities() {
     setForm({ name: '', type: '', capacity: '', location: '', availabilityWindows: '', status: 'ACTIVE', description: '' })
   }
 
-  // Apply client-side filtering by type, location, capacity, and status.
   const filtered = resources.filter(r =>
     (!filter.type || r.type.toLowerCase().includes(filter.type.toLowerCase())) &&
     (!filter.location || r.location.toLowerCase().includes(filter.location.toLowerCase())) &&
@@ -278,7 +267,6 @@ export default function Facilities() {
           </div>
           {user?.role === 'ADMIN' && (
             <button onClick={() => {
-              // Refresh metadata each time modal opens so latest custom values appear.
               setResourceTypes(getAllResourceTypes())
               setResourceLocations(getAllResourceLocations())
               setAvailabilityTemplate({ days: '', fromTime: '', toTime: '' })
@@ -373,12 +361,8 @@ export default function Facilities() {
           <div className="bg-white rounded-2xl p-8 w-full max-w-lg shadow-2xl">
             <h2 className="text-xl font-bold mb-6 text-gray-800">{editingResource ? 'Edit Resource' : 'Add New Resource'}</h2>
             {formError && (
-              <div className="mb-4 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 shadow-sm">
-                <span className="mt-0.5 text-base" aria-hidden="true">⚠️</span>
-                <div>
-                  <p className="font-semibold leading-5">Please fix this error</p>
-                  <p className="mt-1 leading-5">{formError}</p>
-                </div>
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                {formError}
               </div>
             )}
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -389,7 +373,6 @@ export default function Facilities() {
                 onChange={e => {
                   const value = e.target.value
                   setSelectedType(value)
-                  // Keep `form.type` synchronized with select/custom input.
                   if (value === 'OTHER') {
                     setForm({ ...form, type: otherType.trim() })
                   } else {
@@ -428,7 +411,6 @@ export default function Facilities() {
                 onChange={e => {
                   const value = e.target.value
                   setSelectedLocation(value)
-                  // Keep `form.location` synchronized with select/custom input.
                   if (value === 'OTHER') {
                     setForm({ ...form, location: otherLocation.trim() })
                   } else {
