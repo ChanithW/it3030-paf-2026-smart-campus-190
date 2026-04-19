@@ -20,8 +20,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
-import java.util.Set;
-import java.util.EnumSet;
 
 @Service
 @RequiredArgsConstructor
@@ -53,6 +51,7 @@ public class BookingService {
         Resource resource = resourceRepository.findById(request.getResourceId())
                 .orElseThrow(() -> new ResourceNotFoundException("Resource not found with id: " + request.getResourceId()));
 
+        validateResourceCapacity(resource, request.getExpectedAttendees());
         validateResourceAvailability(resource, request.getStartTime(), request.getEndTime());
 
         List<Booking> conflicts = bookingRepository.findConflictingBookings(
@@ -93,6 +92,19 @@ public class BookingService {
                 ));
 
         return saved;
+    }
+
+    private void validateResourceCapacity(Resource resource, Integer expectedAttendees) {
+        if (expectedAttendees == null || resource.getCapacity() == null) {
+            return;
+        }
+
+        if (expectedAttendees > resource.getCapacity()) {
+            throw new BookingConflictException(
+                    resource.getName() + " cannot be booked for " + expectedAttendees
+                            + " attendees. Maximum capacity is " + resource.getCapacity() + "."
+            );
+        }
     }
 
     private void validateResourceAvailability(Resource resource, LocalDateTime startTime, LocalDateTime endTime) {
