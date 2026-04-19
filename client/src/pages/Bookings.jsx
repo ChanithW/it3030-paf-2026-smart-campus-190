@@ -48,6 +48,10 @@ export default function Bookings() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
+    if (form.startTime && form.endTime && form.endTime <= form.startTime) {
+      setError('End time must be after start time')
+      return
+    }
     setSubmitting(true)
     try {
       await api.post('/api/bookings', form)
@@ -269,7 +273,7 @@ export default function Bookings() {
                   <label className="text-xs text-gray-500 font-medium">End Time</label>
                   <input required type="datetime-local" value={form.endTime}
                     onChange={e => setForm({ ...form, endTime: e.target.value })}
-                    min={getMinDateTime()}
+                    min={form.startTime || getMinDateTime()}
                     disabled={submitting}
                     className="w-full border border-gray-200 rounded-xl px-4 py-3 mt-1 focus:outline-none focus:ring-2 focus:ring-green-100 disabled:bg-gray-100" />
                 </div>
