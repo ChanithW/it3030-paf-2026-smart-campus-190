@@ -373,8 +373,12 @@ export default function Facilities() {
           <div className="bg-white rounded-2xl p-8 w-full max-w-lg shadow-2xl">
             <h2 className="text-xl font-bold mb-6 text-gray-800">{editingResource ? 'Edit Resource' : 'Add New Resource'}</h2>
             {formError && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-                {formError}
+              <div className="mb-4 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 shadow-sm">
+                <span className="mt-0.5 text-base" aria-hidden="true">⚠️</span>
+                <div>
+                  <p className="font-semibold leading-5">Please fix this error</p>
+                  <p className="mt-1 leading-5">{formError}</p>
+                </div>
               </div>
             )}
             <form onSubmit={handleSubmit} className="space-y-4">
