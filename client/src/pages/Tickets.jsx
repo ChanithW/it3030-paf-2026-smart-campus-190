@@ -3,6 +3,16 @@ import { useAuth } from '../context/AuthContext'
 import Navbar from '../components/Navbar'
 import api from '../api/axios'
 
+const TICKET_CATEGORIES = [
+  'Electrical',
+  'Plumbing',
+  'IT Support',
+  'Carpentry & Furniture',
+  'Cleaning & Janitorial',
+  'Security & Safety',
+  'Other'
+]
+
 export default function Tickets() {
   const { user } = useAuth()
   const [tickets, setTickets] = useState([])
@@ -307,9 +317,14 @@ export default function Tickets() {
           <div className="bg-white rounded-2xl p-8 w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl font-bold mb-6 text-gray-800">Create Incident Ticket</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <input required placeholder="Category (e.g. Electrical, Plumbing, IT)" value={form.category}
+              <select required value={form.category}
                 onChange={e => setForm({ ...form, category: e.target.value })}
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-orange-100" />
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-orange-100">
+                <option value="">Select Category</option>
+                {TICKET_CATEGORIES.map(cat => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
               <textarea required placeholder="Describe the issue in detail..." value={form.description}
                 onChange={e => setForm({ ...form, description: e.target.value })}
                 className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-orange-100" rows={3} />
@@ -384,12 +399,16 @@ export default function Tickets() {
               <div className="flex-1">
                 {isEditing ? (
                   <div className="space-y-3">
-                    <input
-                      className="w-full text-xl font-bold border-b border-gray-200 focus:outline-none focus:border-orange-500 pb-1"
+                    <select
+                      className="w-full text-xl font-bold border-b border-gray-200 focus:outline-none focus:border-orange-500 pb-1 bg-transparent"
                       value={editForm.category}
                       onChange={e => setEditForm({ ...editForm, category: e.target.value })}
-                      placeholder="Category"
-                    />
+                    >
+                      <option value="">Select Category</option>
+                      {TICKET_CATEGORIES.map(cat => (
+                        <option key={cat} value={cat}>{cat}</option>
+                      ))}
+                    </select>
                     <textarea
                       className="w-full text-sm text-gray-600 border border-gray-100 rounded-lg p-3 focus:outline-none focus:ring-1 focus:ring-orange-100"
                       rows={3}
