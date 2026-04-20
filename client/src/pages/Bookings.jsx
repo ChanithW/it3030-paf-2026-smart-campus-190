@@ -121,6 +121,7 @@ export default function Bookings() {
     ? resources.filter(r => r.type === selectedResourceType)
     : resources
   const selectedResource = resources.find(r => r.id === form.resourceId)
+  const hasCapacity = !!(selectedResource?.capacity)
   const overCapacity = !!(
     selectedResource?.capacity &&
     form.expectedAttendees &&
@@ -298,9 +299,11 @@ export default function Bookings() {
               <input required placeholder="Purpose of booking" value={form.purpose}
                 onChange={e => setForm({ ...form, purpose: e.target.value })}
                 className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-100" />
-              <input placeholder="Expected Attendees" type="number" value={form.expectedAttendees}
-                onChange={e => setForm({ ...form, expectedAttendees: e.target.value })}
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-100" />
+              {hasCapacity && (
+                <input placeholder="Expected Attendees" type="number" value={form.expectedAttendees}
+                  onChange={e => setForm({ ...form, expectedAttendees: e.target.value })}
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-100" />
+              )}
               {overCapacity && (
                 <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800">
                   <p className="text-sm font-semibold">Capacity exceeded</p>

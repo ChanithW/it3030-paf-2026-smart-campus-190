@@ -9,6 +9,8 @@ export default function Tickets() {
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [selectedTicket, setSelectedTicket] = useState(null)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editForm, setEditForm] = useState({ category: '', description: '', location: '' })
   const [comments, setComments] = useState([])
   const [newComment, setNewComment] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
@@ -18,6 +20,7 @@ export default function Tickets() {
   const [form, setForm] = useState({
     category: '', description: '', priority: 'MEDIUM', location: '', contactDetails: ''
   })
+  const [campusLocations, setCampusLocations] = useState([])
 
   const validateContact = (contact) => {
     const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/
@@ -25,7 +28,10 @@ export default function Tickets() {
     return emailRegex.test(contact) || phoneRegex.test(contact)
   }
 
-  useEffect(() => { fetchTickets() }, [])
+  useEffect(() => { 
+    fetchTickets() 
+    fetchLocations()
+  }, [])
 
   const fetchTickets = async () => {
     try {
@@ -38,6 +44,19 @@ export default function Tickets() {
       console.error(err)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchLocations = async () => {
+    try {
+      const res = await api.get('/api/resources')
+      // Extract unique locations and sort them
+      const uniqueLocs = [...new Set(res.data.map(r => r.location))]
+        .filter(Boolean)
+        .sort()
+      setCampusLocations(uniqueLocs)
+    } catch (err) {
+      console.error('Error fetching locations:', err)
     }
   }
 
@@ -131,6 +150,32 @@ export default function Tickets() {
     }
   }
 
+  const handleUpdate = async () => {
+    try {
+      await api.put(`/api/tickets/${selectedTicket.id}`, {
+        ...editForm,
+        priority: selectedTicket.priority,
+        contactDetails: selectedTicket.contactDetails
+      })
+      const refreshed = await api.get(`/api/tickets/${selectedTicket.id}`)
+      setSelectedTicket(refreshed.data)
+      setIsEditing(false)
+      fetchTickets()
+    } catch (err) {
+      console.error(err)
+      alert(err.response?.data?.message || 'Failed to update ticket')
+    }
+  }
+
+  const startEditing = () => {
+    setEditForm({
+      category: selectedTicket.category,
+      description: selectedTicket.description,
+      location: selectedTicket.location || ''
+    })
+    setIsEditing(true)
+  }
+
   const handleAddComment = async (ticketId) => {
     if (!newComment.trim()) return
     try {
@@ -153,6 +198,7 @@ export default function Tickets() {
   }
 
   const openTicket = async (ticket) => {
+    setIsEditing(false)
     try {
       const res = await api.get(`/api/tickets/${ticket.id}`)
       setSelectedTicket(res.data)
@@ -189,8 +235,8 @@ export default function Tickets() {
             <h1 className="text-2xl font-bold text-gray-800">Incident Tickets</h1>
             <p className="text-gray-500 text-sm mt-1">
               {user?.role === 'ADMIN' ? 'Manage all incident reports' :
-               user?.role === 'TECHNICIAN' ? 'Assigned incident reports' :
-               'Your incident reports'}
+                user?.role === 'TECHNICIAN' ? 'Assigned incident reports' :
+                  'Your incident reports'}
             </p>
           </div>
           <button onClick={() => setShowForm(true)}
@@ -202,11 +248,10 @@ export default function Tickets() {
         <div className="flex gap-2 mb-6 flex-wrap">
           {['', 'OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED', 'REJECTED'].map(s => (
             <button key={s} onClick={() => setFilterStatus(s)}
-              className={`px-4 py-2 rounded-xl text-sm font-medium transition ${
-                filterStatus === s
+              className={`px-4 py-2 rounded-xl text-sm font-medium transition ${filterStatus === s
                   ? 'bg-gray-800 text-white'
                   : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
-              }`}>
+                }`}>
               {s ? statusConfig[s]?.label : 'All'}
             </button>
           ))}
@@ -276,9 +321,13 @@ export default function Tickets() {
                   <option value="HIGH">High Priority</option>
                   <option value="CRITICAL">Critical</option>
                 </select>
-                <input placeholder="Location" value={form.location}
-                  onChange={e => setForm({ ...form, location: e.target.value })}
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-orange-100" />
+                <select value={form.location} onChange={e => setForm({ ...form, location: e.target.value })}
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-orange-100">
+                  <option value="">Select Location</option>
+                  {campusLocations.map(loc => (
+                    <option key={loc} value={loc}>{loc}</option>
+                  ))}
+                </select>
               </div>
               <input required placeholder="Contact Details (Email or 10-digit Phone)" value={form.contactDetails}
                 onChange={e => setForm({ ...form, contactDetails: e.target.value })}
@@ -329,16 +378,61 @@ export default function Tickets() {
         </div>
       )}
 
-      {selectedTicket && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      {selectedTicket && (        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl p-8 w-full max-w-2xl shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-start mb-4">
-              <div>
-                <h2 className="text-xl font-bold text-gray-800">{selectedTicket.category}</h2>
-                <p className="text-gray-500 mt-1 text-sm">{selectedTicket.description}</p>
+              <div className="flex-1">
+                {isEditing ? (
+                  <div className="space-y-3">
+                    <input
+                      className="w-full text-xl font-bold border-b border-gray-200 focus:outline-none focus:border-orange-500 pb-1"
+                      value={editForm.category}
+                      onChange={e => setEditForm({ ...editForm, category: e.target.value })}
+                      placeholder="Category"
+                    />
+                    <textarea
+                      className="w-full text-sm text-gray-600 border border-gray-100 rounded-lg p-3 focus:outline-none focus:ring-1 focus:ring-orange-100"
+                      rows={3}
+                      value={editForm.description}
+                      onChange={e => setEditForm({ ...editForm, description: e.target.value })}
+                      placeholder="Description"
+                    />
+                  </div>
+                ) : (
+                  <>
+                    <h2 className="text-xl font-bold text-gray-800">{selectedTicket.category}</h2>
+                    <p className="text-gray-500 mt-1 text-sm">{selectedTicket.description}</p>
+                  </>
+                )}
               </div>
-              <button onClick={() => setSelectedTicket(null)}
-                className="text-gray-400 hover:text-gray-600 text-2xl leading-none ml-4">×</button>
+              <div className="flex items-center gap-2 ml-4">
+                {!isEditing && selectedTicket.user?.email === user?.email && selectedTicket.status === 'OPEN' && (
+                  <button
+                    onClick={startEditing}
+                    className="text-xs font-medium text-orange-500 hover:text-orange-600 px-3 py-1.5 bg-orange-50 rounded-lg transition"
+                  >
+                    Edit
+                  </button>
+                )}
+                {isEditing && (
+                  <>
+                    <button
+                      onClick={handleUpdate}
+                      className="text-xs font-medium text-white bg-orange-500 hover:bg-orange-600 px-3 py-1.5 rounded-lg transition"
+                    >
+                      Save
+                    </button>
+                    <button
+                      onClick={() => setIsEditing(false)}
+                      className="text-xs font-medium text-gray-500 hover:text-gray-600 px-3 py-1.5 bg-gray-100 rounded-lg transition"
+                    >
+                      Cancel
+                    </button>
+                  </>
+                )}
+                <button onClick={() => { setSelectedTicket(null); setIsEditing(false); }}
+                  className="text-gray-400 hover:text-gray-600 text-2xl leading-none ml-2">×</button>
+              </div>
             </div>
 
             <div className="flex gap-2 mb-4">
@@ -350,8 +444,23 @@ export default function Tickets() {
               </span>
             </div>
 
-            {selectedTicket.location && (
-              <p className="text-sm text-gray-500 mb-3">📍 {selectedTicket.location}</p>
+            {isEditing ? (
+              <div className="mb-4">
+                <select
+                  className="w-full text-sm text-gray-500 border-b border-gray-100 focus:outline-none focus:border-orange-500 py-1"
+                  value={editForm.location}
+                  onChange={e => setEditForm({ ...editForm, location: e.target.value })}
+                >
+                  <option value="">Select Location</option>
+                  {campusLocations.map(loc => (
+                    <option key={loc} value={loc}>{loc}</option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              selectedTicket.location && (
+                <p className="text-sm text-gray-500 mb-3">📍 {selectedTicket.location}</p>
+              )
             )}
 
             {selectedTicket.assignedTo && (
