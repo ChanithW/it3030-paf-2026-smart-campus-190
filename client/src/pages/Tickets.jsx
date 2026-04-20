@@ -31,6 +31,8 @@ export default function Tickets() {
     category: '', description: '', priority: 'MEDIUM', location: '', contactDetails: ''
   })
   const [campusLocations, setCampusLocations] = useState([])
+  const [technicians, setTechnicians] = useState([])
+  const [assigneeId, setAssigneeId] = useState('')
 
   const validateContact = (contact) => {
     const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/
@@ -41,6 +43,7 @@ export default function Tickets() {
   useEffect(() => { 
     fetchTickets() 
     fetchLocations()
+    fetchTechnicians()
   }, [])
 
   const fetchTickets = async () => {
@@ -67,6 +70,15 @@ export default function Tickets() {
       setCampusLocations(uniqueLocs)
     } catch (err) {
       console.error('Error fetching locations:', err)
+    }
+  }
+
+  const fetchTechnicians = async () => {
+    try {
+      const res = await api.get('/api/auth/users/technicians')
+      setTechnicians(res.data)
+    } catch (err) {
+      console.error('Error fetching technicians:', err)
     }
   }
 
@@ -147,7 +159,8 @@ export default function Tickets() {
       await api.patch(`/api/tickets/${id}/status`, {
         status,
         resolutionNotes,
-        reason
+        reason,
+        assignedToId: assigneeId
       })
 
       await fetchTickets()
@@ -209,9 +222,11 @@ export default function Tickets() {
 
   const openTicket = async (ticket) => {
     setIsEditing(false)
+    setAssigneeId(ticket.assignedTo?.id || '')
     try {
       const res = await api.get(`/api/tickets/${ticket.id}`)
       setSelectedTicket(res.data)
+      setAssigneeId(res.data.assignedTo?.id || '')
       fetchComments(ticket.id)
     } catch (err) {
       setSelectedTicket(ticket)
@@ -516,6 +531,19 @@ export default function Tickets() {
 
             {(user?.role === 'ADMIN' || user?.role === 'TECHNICIAN') && (
               <div className="flex gap-2 mb-6 flex-wrap bg-gray-50 p-4 rounded-xl">
+                <div className="w-full mb-3">
+                  <p className="text-xs text-gray-500 mb-2 font-medium">Assign To:</p>
+                  <select 
+                    value={assigneeId} 
+                    onChange={e => setAssigneeId(e.target.value)}
+                    className="w-full text-xs bg-white border border-gray-200 rounded-lg p-2 focus:outline-none focus:ring-1 focus:ring-orange-100"
+                  >
+                    <option value="">Unassigned</option>
+                    {technicians.map(tech => (
+                      <option key={tech.id} value={tech.id}>{tech.name}</option>
+                    ))}
+                  </select>
+                </div>
                 <p className="text-xs text-gray-500 w-full font-medium">Update Status:</p>
                 {['IN_PROGRESS', 'RESOLVED', 'CLOSED', 'REJECTED'].map(s => (
                   <button key={s} onClick={() => handleStatusUpdate(selectedTicket.id, s)}
