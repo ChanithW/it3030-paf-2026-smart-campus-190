@@ -8,12 +8,23 @@ export default function Dashboard() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [analytics, setAnalytics] = useState(null)
+  const [showWelcome, setShowWelcome] = useState(false)
 
   useEffect(() => {
     if (user?.role === 'ADMIN') {
       api.get('/api/analytics/summary')
         .then(res => setAnalytics(res.data))
         .catch(err => console.error(err))
+    }
+  }, [user])
+
+  useEffect(() => {
+    if (user?.id) {
+      const welcomed = localStorage.getItem(`welcomed_${user.id}`)
+      if (!welcomed) {
+        setShowWelcome(true)
+        localStorage.setItem(`welcomed_${user.id}`, 'true')
+      }
     }
   }, [user])
 
@@ -27,6 +38,28 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Navbar />
+
+      {/* First Time Login Welcome Message */}
+      {showWelcome && (
+        <div className="bg-green-50 border-b border-green-200 px-6 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">🎉</span>
+            <div>
+              <p className="text-green-800 font-medium text-sm">
+                Welcome to Smart Campus, {user?.name?.split(' ')[0]}! Your account has been created successfully.
+              </p>
+              <p className="text-green-600 text-xs mt-0.5">
+                Start by exploring the facilities and making your first booking!
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowWelcome(false)}
+            className="text-green-500 hover:text-green-700 text-xl font-bold ml-4">
+            ×
+          </button>
+        </div>
+      )}
 
       {/* Hero Banner */}
       <div className="relative bg-gradient-to-br from-blue-600 via-blue-700 to-blue-900 overflow-hidden">

@@ -39,6 +39,10 @@ public class User {
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    private LocalDateTime lastLoginAt;
+
+    private Boolean isNewUser;
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
