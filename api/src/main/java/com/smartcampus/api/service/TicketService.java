@@ -28,15 +28,15 @@ public class TicketService {
     private final NotificationService notificationService;
 
     public List<Ticket> getAllTickets() {
-        return ticketRepository.findAll();
+        return ticketRepository.findAllByOrderByCreatedAtDesc();
     }
 
     public List<Ticket> getTicketsByUser(String userId) {
-        return ticketRepository.findByUserId(userId);
+        return ticketRepository.findByUserIdOrderByCreatedAtDesc(userId);
     }
 
     public List<Ticket> getTicketsByStatus(TicketStatus status) {
-        return ticketRepository.findByStatus(status);
+        return ticketRepository.findByStatusOrderByCreatedAtDesc(status);
     }
 
     public Ticket getTicketById(String id) {
