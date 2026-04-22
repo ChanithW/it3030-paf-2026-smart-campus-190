@@ -135,7 +135,7 @@ export default function Bookings() {
     if (filterDateFrom && new Date(b.startTime) < new Date(filterDateFrom)) return false
     if (filterDateTo && new Date(b.startTime) > new Date(filterDateTo + 'T23:59:59')) return false
     if (filterResource && !b.resource?.name?.toLowerCase().includes(filterResource.toLowerCase())) return false
-    if (filterUser && !b.user?.email?.toLowerCase().includes(filterUser.toLowerCase())) return false
+    if (filterUser && !b.user?.name?.toLowerCase().includes(filterUser.toLowerCase())) return false
     return true
   })
   const visibleResources = selectedResourceType
@@ -214,7 +214,7 @@ export default function Bookings() {
                 />
                 <input
                   type="text"
-                  placeholder="Filter by user email..."
+                  placeholder="Filter by user name..."
                   value={filterUser}
                   onChange={e => setFilterUser(e.target.value)}
                   className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-200 w-56"
@@ -244,6 +244,9 @@ export default function Bookings() {
                         {statusConfig[b.status]?.label}
                       </span>
                     </div>
+                    {user?.role === 'ADMIN' && (
+                      <p className="text-sm text-gray-400 mb-1">👤 {b.user?.name || b.user?.email}</p>
+                    )}
                     <p className="text-sm text-gray-600 mb-2">📋 {b.purpose}</p>
                     <div className="flex gap-6 text-sm text-gray-500">
                       <span>🕐 {new Date(b.startTime).toLocaleString()}</span>
