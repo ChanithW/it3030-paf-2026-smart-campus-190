@@ -7,6 +7,7 @@ import com.smartcampus.api.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -31,12 +32,24 @@ public class UserService {
 
     public User createOrUpdateUser(String email, String name, String profilePicture) {
         return userRepository.findByEmail(email)
+                .map(existingUser -> {
+                    existingUser.setLastLoginAt(LocalDateTime.now());
+                    // Only set isNewUser to false after second login
+                    if (Boolean.TRUE.equals(existingUser.getIsNewUser())) {
+                        existingUser.setIsNewUser(false);
+                    }
+                    existingUser.setProfilePicture(profilePicture);
+                    return userRepository.save(existingUser);
+                })
                 .orElseGet(() -> {
+                    // Brand new user - first time login
                     User newUser = User.builder()
                             .email(email)
                             .name(name)
                             .profilePicture(profilePicture)
                             .role(Role.USER)
+                            .isNewUser(true)
+                            .lastLoginAt(LocalDateTime.now())
                             .build();
                     return userRepository.save(newUser);
                 });

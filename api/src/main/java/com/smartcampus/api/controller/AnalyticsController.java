@@ -41,10 +41,10 @@ public class AnalyticsController {
         summary.put("bookingStats", bookingStats);
 
         Map<String, Long> ticketStats = new HashMap<>();
-        ticketStats.put("OPEN", ticketRepository.findByStatus(com.smartcampus.api.enums.TicketStatus.OPEN).size() * 1L);
-        ticketStats.put("IN_PROGRESS", ticketRepository.findByStatus(com.smartcampus.api.enums.TicketStatus.IN_PROGRESS).size() * 1L);
-        ticketStats.put("RESOLVED", ticketRepository.findByStatus(com.smartcampus.api.enums.TicketStatus.RESOLVED).size() * 1L);
-        ticketStats.put("CLOSED", ticketRepository.findByStatus(com.smartcampus.api.enums.TicketStatus.CLOSED).size() * 1L);
+        ticketStats.put("OPEN", ticketRepository.findByStatusOrderByCreatedAtDesc(com.smartcampus.api.enums.TicketStatus.OPEN).size() * 1L);
+        ticketStats.put("IN_PROGRESS", ticketRepository.findByStatusOrderByCreatedAtDesc(com.smartcampus.api.enums.TicketStatus.IN_PROGRESS).size() * 1L);
+        ticketStats.put("RESOLVED", ticketRepository.findByStatusOrderByCreatedAtDesc(com.smartcampus.api.enums.TicketStatus.RESOLVED).size() * 1L);
+        ticketStats.put("CLOSED", ticketRepository.findByStatusOrderByCreatedAtDesc(com.smartcampus.api.enums.TicketStatus.CLOSED).size() * 1L);
         summary.put("ticketStats", ticketStats);
 
         // Top resources by booking count

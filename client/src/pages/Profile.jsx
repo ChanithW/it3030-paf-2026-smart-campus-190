@@ -81,6 +81,15 @@ export default function Profile() {
                 }) : 'N/A'}
               </span>
             </div>
+            <div className="flex justify-between items-center py-3 border-b border-gray-50">
+              <span className="text-sm text-gray-500">Last Login</span>
+              <span className="text-sm font-medium text-gray-800">
+                {user?.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString('en-US', {
+                  year: 'numeric', month: 'short', day: 'numeric',
+                  hour: '2-digit', minute: '2-digit'
+                }) : 'N/A'}
+              </span>
+            </div>
             <div className="flex justify-between items-center py-3">
               <span className="text-sm text-gray-500">Authentication</span>
               <div className="flex items-center gap-2">

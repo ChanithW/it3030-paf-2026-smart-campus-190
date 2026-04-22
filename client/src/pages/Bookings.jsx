@@ -47,7 +47,7 @@ export default function Bookings() {
     try {
       const endpoint = user?.role === 'ADMIN' ? '/api/bookings' : '/api/bookings/my'
       const res = await api.get(endpoint)
-      setBookings(res.data)
+      setBookings(res.data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)))
     } catch (err) {
       console.error(err)
     } finally {

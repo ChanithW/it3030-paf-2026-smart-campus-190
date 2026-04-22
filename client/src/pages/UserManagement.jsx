@@ -184,7 +184,7 @@ export default function UserManagement() {
                                   ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                                   : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
                               }`}>
-                              {role}
+                              {role === 'TECHNICIAN' ? 'TECH' : role}
                             </button>
                           ))}
                         </div>

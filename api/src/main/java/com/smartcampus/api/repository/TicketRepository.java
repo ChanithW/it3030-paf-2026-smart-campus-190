@@ -6,8 +6,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 
 public interface TicketRepository extends JpaRepository<Ticket, String> {
-    List<Ticket> findByUserId(String userId);
-    List<Ticket> findByStatus(TicketStatus status);
-    List<Ticket> findByAssignedToId(String userId);
-    List<Ticket> findByPriority(String priority);
+    List<Ticket> findAllByOrderByCreatedAtDesc();
+    List<Ticket> findByUserIdOrderByCreatedAtDesc(String userId);
+    List<Ticket> findByStatusOrderByCreatedAtDesc(TicketStatus status);
+    List<Ticket> findByAssignedToIdOrderByCreatedAtDesc(String userId);
+    List<Ticket> findByPriorityOrderByCreatedAtDesc(String priority);
 }
