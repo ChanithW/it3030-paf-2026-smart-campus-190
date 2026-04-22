@@ -15,6 +15,8 @@ export default function Bookings() {
   const [filterStatus, setFilterStatus] = useState('')
   const [filterDateFrom, setFilterDateFrom] = useState('')
   const [filterDateTo, setFilterDateTo] = useState('')
+  const [filterResource, setFilterResource] = useState('')
+  const [filterUser, setFilterUser] = useState('')
   const [qrBooking, setQrBooking] = useState(null)
   const [selectedResourceType, setSelectedResourceType] = useState('')
   const [resourceTypes, setResourceTypes] = useState([])
@@ -132,6 +134,8 @@ export default function Bookings() {
     if (filterStatus && b.status !== filterStatus) return false
     if (filterDateFrom && new Date(b.startTime) < new Date(filterDateFrom)) return false
     if (filterDateTo && new Date(b.startTime) > new Date(filterDateTo + 'T23:59:59')) return false
+    if (filterResource && !b.resource?.name?.toLowerCase().includes(filterResource.toLowerCase())) return false
+    if (filterUser && !b.user?.email?.toLowerCase().includes(filterUser.toLowerCase())) return false
     return true
   })
   const visibleResources = selectedResourceType
@@ -185,19 +189,43 @@ export default function Bookings() {
             ))}
           </div>
           {user?.role === 'ADMIN' && (
-            <div className="flex gap-3 items-center flex-wrap">
-              <span className="text-sm text-gray-500 font-medium">Date range:</span>
-              <input type="date" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)}
-                className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-200" />
-              <span className="text-gray-400 text-sm">to</span>
-              <input type="date" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)}
-                className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-200" />
-              {(filterDateFrom || filterDateTo) && (
-                <button onClick={() => { setFilterDateFrom(''); setFilterDateTo('') }}
-                  className="text-xs text-gray-400 hover:text-gray-600 underline">
-                  Clear dates
-                </button>
-              )}
+            <div className="space-y-2">
+              <div className="flex gap-3 items-center flex-wrap">
+                <span className="text-sm text-gray-500 font-medium">Date range:</span>
+                <input type="date" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)}
+                  className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-200" />
+                <span className="text-gray-400 text-sm">to</span>
+                <input type="date" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)}
+                  className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-200" />
+                {(filterDateFrom || filterDateTo) && (
+                  <button onClick={() => { setFilterDateFrom(''); setFilterDateTo('') }}
+                    className="text-xs text-gray-400 hover:text-gray-600 underline">
+                    Clear dates
+                  </button>
+                )}
+              </div>
+              <div className="flex gap-3 flex-wrap">
+                <input
+                  type="text"
+                  placeholder="Filter by resource name..."
+                  value={filterResource}
+                  onChange={e => setFilterResource(e.target.value)}
+                  className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-200 w-56"
+                />
+                <input
+                  type="text"
+                  placeholder="Filter by user email..."
+                  value={filterUser}
+                  onChange={e => setFilterUser(e.target.value)}
+                  className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-200 w-56"
+                />
+                {(filterResource || filterUser) && (
+                  <button onClick={() => { setFilterResource(''); setFilterUser('') }}
+                    className="text-xs text-gray-400 hover:text-gray-600 underline">
+                    Clear
+                  </button>
+                )}
+              </div>
             </div>
           )}
         </div>
