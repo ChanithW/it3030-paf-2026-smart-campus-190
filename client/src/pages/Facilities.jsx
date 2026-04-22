@@ -15,6 +15,8 @@ import {
   deleteResourceLocation
 } from '../constants/resourceLocations'
 
+const RESOURCE_NAME_PATTERN = /^[A-Za-z0-9 ]+$/
+
 export default function Facilities() {
   const { user } = useAuth()
 
@@ -310,8 +312,14 @@ export default function Facilities() {
     setFormError('')
 
     // Validate required fields
-    if (!form.name.trim()) {
+    const trimmedName = form.name.trim()
+    if (!trimmedName) {
       setFormError('Resource name is required')
+      return
+    }
+
+    if (!RESOURCE_NAME_PATTERN.test(trimmedName)) {
+      setFormError('Resource name can only contain letters, numbers, and spaces')
       return
     }
 
@@ -368,6 +376,7 @@ export default function Facilities() {
     try {
       let payload = {
         ...form,
+        name: trimmedName,
         capacity: form.capacity === '' ? null : Number(form.capacity),
         availabilityWindows: formatAvailability(availabilityTemplate)
       }
@@ -810,6 +819,8 @@ export default function Facilities() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <input required placeholder="Resource Name" value={form.name}
                 onChange={e => setForm({ ...form, name: e.target.value })}
+                pattern="[A-Za-z0-9 ]+"
+                title="Only letters, numbers, and spaces are allowed"
                 className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-100" />
               <select required value={selectedType}
                 onChange={e => {
