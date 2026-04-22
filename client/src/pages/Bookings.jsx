@@ -24,6 +24,7 @@ export default function Bookings() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [editingBooking, setEditingBooking] = useState(null)
   const [form, setForm] = useState({
     resourceId: '', startTime: '', endTime: '', purpose: '', expectedAttendees: ''
   })
@@ -68,6 +69,21 @@ export default function Bookings() {
     }
   }
 
+  const toDatetimeLocal = (iso) => iso ? iso.slice(0, 16) : ''
+
+  const handleEdit = (booking) => {
+    setEditingBooking(booking)
+    setSelectedResourceType(booking.resource?.type || '')
+    setForm({
+      resourceId: booking.resource?.id || '',
+      startTime: toDatetimeLocal(booking.startTime),
+      endTime: toDatetimeLocal(booking.endTime),
+      purpose: booking.purpose || '',
+      expectedAttendees: booking.expectedAttendees || ''
+    })
+    setShowForm(true)
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
@@ -80,10 +96,16 @@ export default function Bookings() {
 
     setSubmitting(true)
     try {
-      await api.post('/api/bookings', form)
-      setSuccess('Booking request submitted successfully!')
+      if (editingBooking) {
+        await api.put(`/api/bookings/${editingBooking.id}`, form)
+        setSuccess('Booking updated successfully!')
+      } else {
+        await api.post('/api/bookings', form)
+        setSuccess('Booking request submitted successfully!')
+      }
       fetchBookings()
       setShowForm(false)
+      setEditingBooking(null)
       setSelectedResourceType('')
       setForm({ resourceId: '', startTime: '', endTime: '', purpose: '', expectedAttendees: '' })
       setTimeout(() => setSuccess(''), 3000)
@@ -284,6 +306,12 @@ export default function Bookings() {
                         📱 QR Code
                       </button>
                     )}
+                    {b.status === 'PENDING' && b.user?.email === user?.email && (
+                      <button onClick={() => handleEdit(b)}
+                        className="text-sm bg-yellow-50 text-yellow-700 px-4 py-2 rounded-xl hover:bg-yellow-100 font-medium">
+                        Edit
+                      </button>
+                    )}
                     {(b.status === 'APPROVED' || b.status === 'PENDING') && b.user?.email === user?.email && (
                       <button onClick={() => handleCancel(b.id)}
                         className="text-sm bg-gray-50 text-gray-600 px-4 py-2 rounded-xl hover:bg-gray-100 font-medium">
@@ -314,7 +342,7 @@ export default function Bookings() {
       {showForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl p-8 w-full max-w-lg shadow-2xl">
-            <h2 className="text-xl font-bold mb-6 text-gray-800">New Booking Request</h2>
+            <h2 className="text-xl font-bold mb-6 text-gray-800">{editingBooking ? 'Edit Booking' : 'New Booking Request'}</h2>
             {error && (
               <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-red-800 shadow-sm" role="alert" aria-live="assertive">
                 <p className="text-sm font-semibold">Please fix this issue</p>
@@ -385,12 +413,14 @@ export default function Bookings() {
               <div className="flex gap-3 pt-2">
                 <button type="submit" disabled={submitting || overCapacity}
                   className="flex-1 bg-green-600 text-white py-3 rounded-xl hover:bg-green-700 font-medium disabled:bg-gray-400 disabled:cursor-not-allowed">
-                  {submitting ? 'Submitting...' : 'Submit Request'}
+                  {submitting ? 'Saving...' : editingBooking ? 'Save Changes' : 'Submit Request'}
                 </button>
                 <button type="button" onClick={() => {
                     setShowForm(false)
+                    setEditingBooking(null)
                     setSelectedResourceType('')
                     setError('')
+                    setForm({ resourceId: '', startTime: '', endTime: '', purpose: '', expectedAttendees: '' })
                   }}
                   className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl hover:bg-gray-200 font-medium">
                   Cancel
