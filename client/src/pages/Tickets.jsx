@@ -52,7 +52,7 @@ export default function Tickets() {
         ? '/api/tickets'
         : '/api/tickets/my'
       const res = await api.get(endpoint)
-      setTickets(res.data)
+      setTickets(res.data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)))
     } catch (err) {
       console.error(err)
     } finally {
@@ -408,7 +408,8 @@ export default function Tickets() {
         </div>
       )}
 
-      {selectedTicket && (        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      {selectedTicket && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl p-8 w-full max-w-2xl shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-start mb-4">
               <div className="flex-1">
