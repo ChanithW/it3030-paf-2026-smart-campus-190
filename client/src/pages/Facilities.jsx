@@ -3,12 +3,14 @@ import { useAuth } from '../context/AuthContext'
 import Navbar from '../components/Navbar'
 import api from '../api/axios'
 import {
+  BASE_RESOURCE_TYPES,
   getAllResourceTypes,
   saveCustomResourceType,
   updateResourceType,
   deleteResourceType
 } from '../constants/resourceTypes'
 import {
+  BASE_RESOURCE_LOCATIONS,
   getAllResourceLocations,
   saveCustomResourceLocation,
   updateResourceLocation,
@@ -16,6 +18,21 @@ import {
 } from '../constants/resourceLocations'
 
 const RESOURCE_NAME_PATTERN = /^[A-Za-z0-9 ]+$/
+const CUSTOM_EQUIPMENT_PREFIX = 'Equipment - '
+
+const stripEquipmentPrefix = (value = '') => {
+  const trimmed = value.trim()
+  if (trimmed.toLowerCase().startsWith(CUSTOM_EQUIPMENT_PREFIX.toLowerCase())) {
+    return trimmed.slice(CUSTOM_EQUIPMENT_PREFIX.length)
+  }
+  return trimmed
+}
+
+const buildCustomEquipmentType = (value = '') => {
+  const customPart = stripEquipmentPrefix(value)
+  if (!customPart) return ''
+  return `${CUSTOM_EQUIPMENT_PREFIX}${customPart}`
+}
 
 export default function Facilities() {
   const { user } = useAuth()
@@ -59,6 +76,15 @@ export default function Facilities() {
     'Weekend',
     'All Week'
   ]
+
+  const isBuiltInResourceType =
+    selectedType && BASE_RESOURCE_TYPES.some((type) => type.toLowerCase() === selectedType.toLowerCase())
+  const customResourceTypes = resourceTypes.filter(
+    (type) => !BASE_RESOURCE_TYPES.some((baseType) => baseType.toLowerCase() === type.toLowerCase())
+  )
+  const customResourceLocations = resourceLocations.filter(
+    (location) => !BASE_RESOURCE_LOCATIONS.some((baseLocation) => baseLocation.toLowerCase() === location.toLowerCase())
+  )
 
   // Serialize availability fields into a single backend-friendly string.
   const formatAvailability = ({ days, fromTime, toTime }) => `${days.trim()} | ${fromTime} to ${toTime}`
@@ -210,8 +236,9 @@ export default function Facilities() {
 
     if (selectedType.toLowerCase() === type.toLowerCase()) {
       setSelectedType('OTHER')
-      setOtherType(type)
-      setForm({ ...form, type })
+      const customTypePart = stripEquipmentPrefix(type)
+      setOtherType(customTypePart)
+      setForm({ ...form, type: buildCustomEquipmentType(customTypePart) })
     }
 
     if (typeEditor.original.toLowerCase() === type.toLowerCase()) {
@@ -333,9 +360,8 @@ export default function Facilities() {
       return
     }
 
-    const isOtherType = selectedType === 'OTHER'
     const shouldRequireCapacity =
-      !isOtherType && (!editingResource || editingResource.capacity !== null)
+      isBuiltInResourceType && (!editingResource || editingResource.capacity !== null)
 
     if (shouldRequireCapacity && (!form.capacity || form.capacity === '')) {
       setFormError('Capacity is required')
@@ -393,7 +419,7 @@ export default function Facilities() {
 
       // Handle custom type
       if (selectedType === 'OTHER') {
-        const customType = otherType.trim()
+        const customType = buildCustomEquipmentType(otherType)
         saveCustomResourceType(customType)
         setResourceTypes(getAllResourceTypes())
         payload = { ...payload, type: customType }
@@ -477,7 +503,7 @@ export default function Facilities() {
       setOtherType('')
     } else {
       setSelectedType('OTHER')
-      setOtherType(resource.type || '')
+      setOtherType(stripEquipmentPrefix(resource.type || ''))
     }
 
     if (isKnownLocation) {
@@ -557,7 +583,7 @@ export default function Facilities() {
             <div className="flex items-center justify-between gap-3 mb-4">
               <div>
                 <h2 className="text-lg font-bold text-gray-800">Manage Resource Types</h2>
-                <p className="text-sm text-gray-500">Rename or remove types used in the resource dropdowns.</p>
+                <p className="text-sm text-gray-500">Rename or remove custom types added from Other Equipments.</p>
               </div>
               <div className="flex items-center gap-2">
                 {typeEditor.original && (
@@ -582,7 +608,10 @@ export default function Facilities() {
 
             {!isTypePanelCollapsed && (
               <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-                {resourceTypes.map((type) => {
+                {customResourceTypes.length === 0 && (
+                  <p className="text-sm text-gray-500">No custom resource types added yet.</p>
+                )}
+                {customResourceTypes.map((type) => {
                   const isEditing = typeEditor.original.toLowerCase() === type.toLowerCase()
 
                   return (
@@ -645,7 +674,7 @@ export default function Facilities() {
             <div className="flex items-center justify-between gap-3 mb-4">
               <div>
                 <h2 className="text-lg font-bold text-gray-800">Manage Resource Locations</h2>
-                <p className="text-sm text-gray-500">Rename or remove locations used in the dropdowns.</p>
+                <p className="text-sm text-gray-500">Rename or remove custom locations added from Other.</p>
               </div>
               <div className="flex items-center gap-2">
                 {locationEditor.original && (
@@ -670,7 +699,10 @@ export default function Facilities() {
 
             {!isLocationPanelCollapsed && (
               <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-                {resourceLocations.map((location) => {
+                {customResourceLocations.length === 0 && (
+                  <p className="text-sm text-gray-500">No custom resource locations added yet.</p>
+                )}
+                {customResourceLocations.map((location) => {
                   const isEditing = locationEditor.original.toLowerCase() === location.toLowerCase()
 
                   return (
@@ -828,7 +860,7 @@ export default function Facilities() {
                   setSelectedType(value)
                   // Keep `form.type` in sync with selected/custom type value.
                   if (value === 'OTHER') {
-                    setForm({ ...form, type: otherType.trim(), capacity: '' })
+                    setForm({ ...form, type: buildCustomEquipmentType(otherType), capacity: '' })
                   } else {
                     setOtherType('')
                     setForm({ ...form, type: value })
@@ -839,19 +871,26 @@ export default function Facilities() {
                 {resourceTypes.map((type) => (
                   <option key={type} value={type}>{type}</option>
                 ))}
-                <option value="OTHER">Other</option>
+                <option value="OTHER">Other Equipments</option>
               </select>
               {selectedType === 'OTHER' && (
-                <input required placeholder="Enter resource type" value={otherType}
-                  onChange={e => {
-                    const value = e.target.value
-                    setOtherType(value)
-                    setForm({ ...form, type: value.trim() })
-                  }}
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-100" />
+                <div className="flex w-full items-center rounded-xl border border-gray-200 px-4 py-3 focus-within:ring-2 focus-within:ring-blue-100">
+                  <span className="shrink-0 text-gray-500">Equipment - </span>
+                  <input
+                    required
+                    placeholder="Type name"
+                    value={otherType}
+                    onChange={e => {
+                      const value = e.target.value
+                      setOtherType(value)
+                      setForm({ ...form, type: buildCustomEquipmentType(value) })
+                    }}
+                    className="w-full border-none p-0 focus:outline-none"
+                  />
+                </div>
               )}
-              <div className={`grid gap-4 ${selectedType === 'OTHER' ? 'grid-cols-1' : 'grid-cols-2'}`}>
-                {selectedType !== 'OTHER' && (
+              <div className={`grid gap-4 ${isBuiltInResourceType ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                {isBuiltInResourceType && (
                   <input
                     required={!editingResource || editingResource.capacity !== null}
                     placeholder={!editingResource || editingResource.capacity !== null ? 'Capacity' : 'Capacity (optional)'}
