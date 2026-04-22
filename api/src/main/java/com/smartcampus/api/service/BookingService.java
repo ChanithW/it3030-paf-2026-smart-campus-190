@@ -6,6 +6,7 @@ import com.smartcampus.api.enums.BookingStatus;
 import com.smartcampus.api.enums.Role;
 import com.smartcampus.api.exception.BookingConflictException;
 import com.smartcampus.api.exception.ResourceNotFoundException;
+import com.smartcampus.api.exception.UnauthorizedException;
 import com.smartcampus.api.model.Booking;
 import com.smartcampus.api.model.Resource;
 import com.smartcampus.api.model.User;
@@ -277,5 +278,13 @@ public class BookingService {
 
         booking.setStatus(BookingStatus.CANCELLED);
         return bookingRepository.save(booking);
+    }
+
+    public void deleteBooking(String id, User requestingUser) {
+        if (requestingUser.getRole() != Role.ADMIN) {
+            throw new UnauthorizedException("Only admins can delete bookings");
+        }
+        Booking booking = getBookingById(id);
+        bookingRepository.delete(booking);
     }
 }

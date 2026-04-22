@@ -78,4 +78,13 @@ public class BookingController {
         User user = userService.getUserByEmail(principal.getAttribute("email"));
         return ResponseEntity.ok(bookingService.cancelBooking(id, user));
     }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteBooking(
+            @PathVariable String id,
+            @AuthenticationPrincipal OAuth2User principal) {
+        User user = userService.getUserByEmail(principal.getAttribute("email"));
+        bookingService.deleteBooking(id, user);
+        return ResponseEntity.noContent().build();
+    }
 }

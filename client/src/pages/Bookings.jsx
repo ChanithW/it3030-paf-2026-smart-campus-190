@@ -109,6 +109,16 @@ export default function Bookings() {
     }
   }
 
+  const handleDelete = async (id) => {
+    if (!confirm('Permanently delete this booking? This cannot be undone.')) return
+    try {
+      await api.delete(`/api/bookings/${id}`)
+      fetchBookings()
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
   const statusConfig = {
     PENDING: { color: 'bg-yellow-100 text-yellow-700', label: 'Pending' },
     APPROVED: { color: 'bg-green-100 text-green-700', label: 'Approved' },
@@ -225,6 +235,12 @@ export default function Bookings() {
                           </button>
                         )}
                       </div>
+                    )}
+                    {user?.role === 'ADMIN' && (
+                      <button onClick={() => handleDelete(b.id)}
+                        className="text-sm bg-red-50 text-red-600 px-4 py-2 rounded-xl hover:bg-red-100 font-medium">
+                        Delete
+                      </button>
                     )}
                   </div>
                 </div>
