@@ -247,19 +247,17 @@ export default function Bookings() {
                       </div>
                     )}
                     {b.status === 'APPROVED' && (
-                      <div className="flex gap-2">
-                        <button
-                          onClick={(e) => { e.stopPropagation(); setQrBooking(b) }}
-                          className="text-sm bg-blue-50 text-blue-600 px-4 py-2 rounded-xl hover:bg-blue-100 font-medium">
-                          📱 QR Code
-                        </button>
-                        {b.user?.email === user?.email && (
-                          <button onClick={() => handleCancel(b.id)}
-                            className="text-sm bg-gray-50 text-gray-600 px-4 py-2 rounded-xl hover:bg-gray-100 font-medium">
-                            Cancel
-                          </button>
-                        )}
-                      </div>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setQrBooking(b) }}
+                        className="text-sm bg-blue-50 text-blue-600 px-4 py-2 rounded-xl hover:bg-blue-100 font-medium">
+                        📱 QR Code
+                      </button>
+                    )}
+                    {(b.status === 'APPROVED' || b.status === 'PENDING') && b.user?.email === user?.email && (
+                      <button onClick={() => handleCancel(b.id)}
+                        className="text-sm bg-gray-50 text-gray-600 px-4 py-2 rounded-xl hover:bg-gray-100 font-medium">
+                        Cancel
+                      </button>
                     )}
                     {user?.role === 'ADMIN' && (
                       <button onClick={() => handleDelete(b.id)}
