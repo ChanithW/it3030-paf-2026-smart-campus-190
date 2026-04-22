@@ -44,6 +44,7 @@ export default function Facilities() {
   const [editingResource, setEditingResource] = useState(null)
   const [resourceTypes, setResourceTypes] = useState([])
   const [resourceLocations, setResourceLocations] = useState([])
+  const [bookings, setBookings] = useState([])
   const [typeEditor, setTypeEditor] = useState({ original: '', value: '' })
   const [locationEditor, setLocationEditor] = useState({ original: '', value: '' })
   const [isTypePanelCollapsed, setIsTypePanelCollapsed] = useState(true)
@@ -116,6 +117,12 @@ export default function Facilities() {
   }, [])
 
   useEffect(() => {
+    if (user?.role === 'ADMIN') {
+      fetchBookings()
+    }
+  }, [user?.role])
+
+  useEffect(() => {
     const handleTypesChanged = () => {
       setResourceTypes(getAllResourceTypes())
     }
@@ -158,6 +165,16 @@ export default function Facilities() {
     description: resource.description || '',
     ...overrides
   })
+
+  const fetchBookings = async () => {
+    try {
+      const res = await api.get('/api/bookings')
+      setBookings(res.data)
+    } catch (err) {
+      console.error(err)
+      showToast('Failed to load bookings for delete validation.', 'error')
+    }
+  }
 
   const startTypeEdit = (type) => {
     setTypeEditor({ original: type, value: type })
@@ -228,17 +245,41 @@ export default function Facilities() {
     cancelTypeEdit()
   }
 
-  const handleDeleteType = (type) => {
-    if (!confirm(`Delete resource type "${type}"?`)) return
+  const handleDeleteType = async (type) => {
+    const affectedResources = resources.filter(
+      (resource) => (resource.type || '').toLowerCase() === type.toLowerCase()
+    )
+    const hasBookings = affectedResources.some((resource) =>
+      bookings.some((booking) => booking.resource?.id === resource.id)
+    )
 
-    deleteResourceType(type)
-    setResourceTypes(getAllResourceTypes())
+    if (hasBookings) {
+      showToast('Cannot delete type because it is already booked.', 'error')
+      return
+    }
+
+    if (!confirm(`Delete resource type "${type}"? All resources using this type will be deleted.`)) return
+
+    try {
+      if (affectedResources.length > 0) {
+        await Promise.all(
+          affectedResources.map((resource) => api.delete(`/api/resources/${resource.id}`))
+        )
+      }
+
+      deleteResourceType(type)
+      setResourceTypes(getAllResourceTypes())
+      await fetchResources()
+    } catch (err) {
+      console.error(err)
+      showToast('Failed to delete this resource type.', 'error')
+      return
+    }
 
     if (selectedType.toLowerCase() === type.toLowerCase()) {
-      setSelectedType('OTHER')
-      const customTypePart = stripEquipmentPrefix(type)
-      setOtherType(customTypePart)
-      setForm({ ...form, type: buildCustomEquipmentType(customTypePart) })
+      setSelectedType('')
+      setOtherType('')
+      setForm({ ...form, type: '' })
     }
 
     if (typeEditor.original.toLowerCase() === type.toLowerCase()) {
@@ -301,16 +342,41 @@ export default function Facilities() {
     cancelLocationEdit()
   }
 
-  const handleDeleteLocation = (location) => {
-    if (!confirm(`Delete resource location "${location}"?`)) return
+  const handleDeleteLocation = async (location) => {
+    const affectedResources = resources.filter(
+      (resource) => (resource.location || '').toLowerCase() === location.toLowerCase()
+    )
+    const hasBookings = affectedResources.some((resource) =>
+      bookings.some((booking) => booking.resource?.id === resource.id)
+    )
 
-    deleteResourceLocation(location)
-    setResourceLocations(getAllResourceLocations())
+    if (hasBookings) {
+      showToast('Cannot delete location because it is already booked.', 'error')
+      return
+    }
+
+    if (!confirm(`Delete resource location "${location}"? All resources using this location will be deleted.`)) return
+
+    try {
+      if (affectedResources.length > 0) {
+        await Promise.all(
+          affectedResources.map((resource) => api.delete(`/api/resources/${resource.id}`))
+        )
+      }
+
+      deleteResourceLocation(location)
+      setResourceLocations(getAllResourceLocations())
+      await fetchResources()
+    } catch (err) {
+      console.error(err)
+      showToast('Failed to delete this resource location.', 'error')
+      return
+    }
 
     if (selectedLocation.toLowerCase() === location.toLowerCase()) {
-      setSelectedLocation('OTHER')
-      setOtherLocation(location)
-      setForm({ ...form, location })
+      setSelectedLocation('')
+      setOtherLocation('')
+      setForm({ ...form, location: '' })
     }
 
     if (locationEditor.original.toLowerCase() === location.toLowerCase()) {
