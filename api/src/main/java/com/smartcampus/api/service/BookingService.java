@@ -171,7 +171,11 @@ public class BookingService {
     }
 
     private String formatTime(LocalTime time) {
-        return time.toString().length() == 5 ? time.toString() : time.toString().substring(0, 5);
+        int hour = time.getHour();
+        int minute = time.getMinute();
+        String period = hour >= 12 ? "PM" : "AM";
+        int displayHour = hour % 12 == 0 ? 12 : hour % 12;
+        return String.format("%d:%02d %s", displayHour, minute, period);
     }
 
     private record AvailabilityWindow(String daysLabel, LocalTime startTime, LocalTime endTime) {
@@ -192,6 +196,42 @@ public class BookingService {
                 default -> false;
             };
         }
+    }
+
+    public Booking updateBooking(String id, BookingRequest request, User user) {
+        Booking booking = getBookingById(id);
+
+        if (!booking.getUser().getId().equals(user.getId())) {
+            throw new RuntimeException("You can only edit your own bookings");
+        }
+
+        if (booking.getStatus() != BookingStatus.PENDING) {
+            throw new RuntimeException("Only pending bookings can be edited");
+        }
+
+        Resource resource = resourceRepository.findById(request.getResourceId())
+                .orElseThrow(() -> new ResourceNotFoundException("Resource not found with id: " + request.getResourceId()));
+
+        validateResourceCapacity(resource, request.getExpectedAttendees());
+        validateResourceAvailability(resource, request.getStartTime(), request.getEndTime());
+
+        List<Booking> conflicts = bookingRepository.findConflictingBookings(
+                resource, request.getStartTime(), request.getEndTime())
+                .stream()
+                .filter(b -> !b.getId().equals(id))
+                .toList();
+
+        if (!conflicts.isEmpty()) {
+            throw new BookingConflictException("Resource is already booked for the selected time range");
+        }
+
+        booking.setResource(resource);
+        booking.setStartTime(request.getStartTime());
+        booking.setEndTime(request.getEndTime());
+        booking.setPurpose(request.getPurpose());
+        booking.setExpectedAttendees(request.getExpectedAttendees());
+
+        return bookingRepository.save(booking);
     }
 
     public Booking updateBookingStatus(String id, StatusUpdateRequest request) {
