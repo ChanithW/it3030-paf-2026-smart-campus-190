@@ -13,6 +13,8 @@ export default function Bookings() {
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [filterStatus, setFilterStatus] = useState('')
+  const [filterDateFrom, setFilterDateFrom] = useState('')
+  const [filterDateTo, setFilterDateTo] = useState('')
   const [qrBooking, setQrBooking] = useState(null)
   const [selectedResourceType, setSelectedResourceType] = useState('')
   const [resourceTypes, setResourceTypes] = useState([])
@@ -126,7 +128,12 @@ export default function Bookings() {
     CANCELLED: { color: 'bg-gray-100 text-gray-500', label: 'Cancelled' }
   }
 
-  const filtered = bookings.filter(b => !filterStatus || b.status === filterStatus)
+  const filtered = bookings.filter(b => {
+    if (filterStatus && b.status !== filterStatus) return false
+    if (filterDateFrom && new Date(b.startTime) < new Date(filterDateFrom)) return false
+    if (filterDateTo && new Date(b.startTime) > new Date(filterDateTo + 'T23:59:59')) return false
+    return true
+  })
   const visibleResources = selectedResourceType
     ? resources.filter(r => r.type === selectedResourceType)
     : resources
@@ -164,17 +171,35 @@ export default function Bookings() {
         </div>
 
         {/* Filter */}
-        <div className="flex gap-2 mb-6 flex-wrap">
-          {['', 'PENDING', 'APPROVED', 'REJECTED', 'CANCELLED'].map(s => (
-            <button key={s} onClick={() => setFilterStatus(s)}
-              className={`px-4 py-2 rounded-xl text-sm font-medium transition ${
-                filterStatus === s
-                  ? 'bg-gray-800 text-white'
-                  : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
-              }`}>
-              {s || 'All'}
-            </button>
-          ))}
+        <div className="mb-6 space-y-3">
+          <div className="flex gap-2 flex-wrap">
+            {['', 'PENDING', 'APPROVED', 'REJECTED', 'CANCELLED'].map(s => (
+              <button key={s} onClick={() => setFilterStatus(s)}
+                className={`px-4 py-2 rounded-xl text-sm font-medium transition ${
+                  filterStatus === s
+                    ? 'bg-gray-800 text-white'
+                    : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+                }`}>
+                {s || 'All'}
+              </button>
+            ))}
+          </div>
+          {user?.role === 'ADMIN' && (
+            <div className="flex gap-3 items-center flex-wrap">
+              <span className="text-sm text-gray-500 font-medium">Date range:</span>
+              <input type="date" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)}
+                className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-200" />
+              <span className="text-gray-400 text-sm">to</span>
+              <input type="date" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)}
+                className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-200" />
+              {(filterDateFrom || filterDateTo) && (
+                <button onClick={() => { setFilterDateFrom(''); setFilterDateTo('') }}
+                  className="text-xs text-gray-400 hover:text-gray-600 underline">
+                  Clear dates
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {loading ? (
