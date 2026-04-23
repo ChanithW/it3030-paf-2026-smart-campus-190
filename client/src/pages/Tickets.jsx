@@ -220,18 +220,25 @@ export default function Tickets() {
     }
   }
 
+  const handleDeleteTicket = async (id) => {
+    if (!confirm('Permanently delete this ticket? This action cannot be undone.')) return
+    try {
+      await api.delete(`/api/tickets/${id}`)
+      setSelectedTicket(null)
+      setComments([])
+      fetchTickets()
+    } catch (err) {
+      console.error(err)
+      alert(err.response?.data?.message || 'Failed to delete ticket')
+    }
+  }
+
   const openTicket = async (ticket) => {
     setIsEditing(false)
     setAssigneeId(ticket.assignedTo?.id || '')
-    try {
-      const res = await api.get(`/api/tickets/${ticket.id}`)
-      setSelectedTicket(res.data)
-      setAssigneeId(res.data.assignedTo?.id || '')
-      fetchComments(ticket.id)
-    } catch (err) {
-      setSelectedTicket(ticket)
-      fetchComments(ticket.id)
-    }
+    setSelectedTicket(ticket)
+    setAssigneeId(ticket.assignedTo?.id || '')
+    fetchComments(ticket.id)
   }
 
   const priorityConfig = {
@@ -470,13 +477,23 @@ export default function Tickets() {
               </div>
             </div>
 
-            <div className="flex gap-2 mb-4">
-              <span className={`text-xs px-3 py-1 rounded-full font-medium ${statusConfig[selectedTicket.status]?.color}`}>
-                {statusConfig[selectedTicket.status]?.label}
-              </span>
-              <span className={`text-xs px-3 py-1 rounded-full font-medium ${priorityConfig[selectedTicket.priority]?.color}`}>
-                {priorityConfig[selectedTicket.priority]?.label}
-              </span>
+            <div className="flex gap-2 mb-4 items-center justify-between">
+              <div className="flex gap-2">
+                <span className={`text-xs px-3 py-1 rounded-full font-medium ${statusConfig[selectedTicket.status]?.color}`}>
+                  {statusConfig[selectedTicket.status]?.label}
+                </span>
+                <span className={`text-xs px-3 py-1 rounded-full font-medium ${priorityConfig[selectedTicket.priority]?.color}`}>
+                  {priorityConfig[selectedTicket.priority]?.label}
+                </span>
+              </div>
+              {user?.role === 'ADMIN' && (selectedTicket.status === 'CLOSED' || selectedTicket.status === 'REJECTED') && (
+                <button
+                  onClick={() => handleDeleteTicket(selectedTicket.id)}
+                  className="text-xs px-3 py-1 rounded-lg font-medium bg-red-100 text-red-700 hover:bg-red-200 transition"
+                >
+                  Delete Ticket
+                </button>
+              )}
             </div>
 
             {isEditing ? (
@@ -530,7 +547,7 @@ export default function Tickets() {
               </div>
             )}
 
-            {(user?.role === 'ADMIN' || user?.role === 'TECHNICIAN') && (
+{(user?.role === 'ADMIN' || user?.role === 'TECHNICIAN') && (
               <div className="flex gap-2 mb-6 flex-wrap bg-gray-50 p-4 rounded-xl">
                 <div className="w-full mb-3">
                   <p className="text-xs text-gray-500 mb-2 font-medium">Assign To:</p>
