@@ -309,7 +309,7 @@ export default function Tickets() {
                     </div>
                     <p className="text-sm text-gray-600 mb-2">{t.description}</p>
                     <div className="flex items-center gap-4">
-                      {t.location && <p className="text-sm text-gray-400">📍 {t.location}</p>}
+                      {t.location && <p className="text-sm text-gray-400">📌 {t.location}</p>}
                       {t.attachments?.length > 0 && (
                         <p className="text-sm text-gray-400">📎 {t.attachments.length} attachment{t.attachments.length > 1 ? 's' : ''}</p>
                       )}
@@ -511,7 +511,7 @@ export default function Tickets() {
               </div>
             ) : (
               selectedTicket.location && (
-                <p className="text-sm text-gray-500 mb-3">📍 {selectedTicket.location}</p>
+                <p className="text-sm text-gray-500 mb-3">📌 {selectedTicket.location}</p>
               )
             )}
 
