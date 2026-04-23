@@ -198,7 +198,12 @@ public class BookingService {
                 case "friday" -> dayOfWeek == DayOfWeek.FRIDAY;
                 case "saturday" -> dayOfWeek == DayOfWeek.SATURDAY;
                 case "sunday" -> dayOfWeek == DayOfWeek.SUNDAY;
-                default -> false;
+                default -> {
+                    String dayName = dayOfWeek.name().toLowerCase();
+                    yield java.util.Arrays.stream(normalized.split(","))
+                            .map(String::trim)
+                            .anyMatch(d -> d.equals(dayName));
+                }
             };
         }
     }

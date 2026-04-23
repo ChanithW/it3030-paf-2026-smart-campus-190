@@ -84,10 +84,26 @@ export default function Bookings() {
     setShowForm(true)
   }
 
+  const nowLocal = () => {
+    const now = new Date()
+    now.setSeconds(0, 0)
+    return now.toISOString().slice(0, 16)
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
     setSuccess('')
+
+    const now = new Date()
+    if (new Date(form.startTime) < now) {
+      setError('Start time cannot be in the past.')
+      return
+    }
+    if (new Date(form.endTime) <= new Date(form.startTime)) {
+      setError('End time must be after start time.')
+      return
+    }
 
     if (overCapacity) {
       setError(`This resource cannot be booked for ${form.expectedAttendees} attendees. Maximum capacity is ${selectedResource.capacity}.`)
@@ -384,12 +400,14 @@ export default function Bookings() {
                 <div>
                   <label className="text-xs text-gray-500 font-medium">Start Time</label>
                   <input required type="datetime-local" value={form.startTime}
+                    min={nowLocal()}
                     onChange={e => setForm({ ...form, startTime: e.target.value })}
                     className="w-full border border-gray-200 rounded-xl px-4 py-3 mt-1 focus:outline-none focus:ring-2 focus:ring-green-100" />
                 </div>
                 <div>
                   <label className="text-xs text-gray-500 font-medium">End Time</label>
                   <input required type="datetime-local" value={form.endTime}
+                    min={form.startTime || nowLocal()}
                     onChange={e => setForm({ ...form, endTime: e.target.value })}
                     className="w-full border border-gray-200 rounded-xl px-4 py-3 mt-1 focus:outline-none focus:ring-2 focus:ring-green-100" />
                 </div>
