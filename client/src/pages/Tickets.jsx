@@ -157,27 +157,26 @@ export default function Tickets() {
         reason = input || 'Rejected by admin'
       }
 
-      await api.patch(`/api/tickets/${id}/status`, {
+      const statusRes = await api.patch(`/api/tickets/${id}/status`, {
         status,
         resolutionNotes,
         reason,
-        assignedToId: assigneeId
+        assignedToId: assigneeId || null
       })
 
       await fetchTickets()
 
-      try {
-        const refreshed = await api.get(`/api/tickets/${id}`)
-        setSelectedTicket(refreshed.data)
-      } catch (err) {
-        if (err.response?.status !== 404) {
-          console.error(err)
-        }
+      if (statusRes.data) {
+        setSelectedTicket(statusRes.data)
       }
 
     } catch (err) {
-      if (err.response?.status !== 404) {
-        console.error(err)
+      console.error('Status update failed:', err)
+      const errorMessage = err.response?.data?.message || 'Failed to update ticket status'
+      alert(errorMessage)
+      await fetchTickets()
+      if (selectedTicket) {
+        setSelectedTicket(null)
       }
     }
   }
