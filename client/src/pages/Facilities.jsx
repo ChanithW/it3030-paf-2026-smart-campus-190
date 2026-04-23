@@ -19,6 +19,17 @@ import {
 
 const RESOURCE_NAME_PATTERN = /^[A-Za-z0-9 ]+$/
 const CUSTOM_EQUIPMENT_PREFIX = 'Equipment - '
+const AVAILABILITY_DAY_OPTIONS = [
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+  'Sunday'
+]
+const DEFAULT_FROM_TIME = '08:00'
+const DEFAULT_TO_TIME = '20:00'
 
 const stripEquipmentPrefix = (value = '') => {
   const trimmed = value.trim()
@@ -62,21 +73,8 @@ export default function Facilities() {
     availabilityWindows: '', status: 'ACTIVE', description: ''
   })
   const [availabilityTemplate, setAvailabilityTemplate] = useState({
-    days: '', fromTime: '', toTime: ''
+    days: [], fromTime: DEFAULT_FROM_TIME, toTime: DEFAULT_TO_TIME
   })
-  const availabilityDayOptions = [
-    'Monday',
-    'Tuesday',
-    'Wednesday',
-    'Thursday',
-    'Friday',
-    'Saturday',
-    'Sunday',
-    'Mon-Fri',
-    'Mon-Sat',
-    'Weekend',
-    'All Week'
-  ]
 
   const isBuiltInResourceType =
     selectedType && BASE_RESOURCE_TYPES.some((type) => type.toLowerCase() === selectedType.toLowerCase())
@@ -88,25 +86,51 @@ export default function Facilities() {
   )
 
   // Serialize availability fields into a single backend-friendly string.
-  const formatAvailability = ({ days, fromTime, toTime }) => `${days.trim()} | ${fromTime} to ${toTime}`
+  const normalizeSelectedDays = (daysText = '') => {
+    const trimmed = daysText.trim()
+    if (!trimmed) return []
+
+    const lowerTrimmed = trimmed.toLowerCase()
+    if (lowerTrimmed === 'all week') return [...AVAILABILITY_DAY_OPTIONS]
+    if (lowerTrimmed === 'mon-fri') return AVAILABILITY_DAY_OPTIONS.slice(0, 5)
+    if (lowerTrimmed === 'mon-sat') return AVAILABILITY_DAY_OPTIONS.slice(0, 6)
+    if (lowerTrimmed === 'weekend') return ['Saturday', 'Sunday']
+
+    return trimmed
+      .split(',')
+      .map((day) => day.trim())
+      .filter((day) => AVAILABILITY_DAY_OPTIONS.includes(day))
+  }
+
+  const formatAvailability = ({ days, fromTime, toTime }) => `${days.join(', ')} | ${fromTime} to ${toTime}`
 
   // Parse stored availability text when populating edit form.
   const parseAvailability = (availability = '') => {
     const [daysPart, timePart] = availability.split('|')
     if (!daysPart || !timePart) {
-      return { days: '', fromTime: '', toTime: '' }
+      return { days: [], fromTime: DEFAULT_FROM_TIME, toTime: DEFAULT_TO_TIME }
     }
 
     const [fromPart, toPart] = timePart.trim().split(/\s+to\s+/i)
     if (!fromPart || !toPart) {
-      return { days: '', fromTime: '', toTime: '' }
+      return { days: normalizeSelectedDays(daysPart), fromTime: DEFAULT_FROM_TIME, toTime: DEFAULT_TO_TIME }
     }
 
     return {
-      days: daysPart.trim(),
-      fromTime: fromPart.trim(),
-      toTime: toPart.trim()
+      days: normalizeSelectedDays(daysPart),
+      fromTime: fromPart.trim() || DEFAULT_FROM_TIME,
+      toTime: toPart.trim() || DEFAULT_TO_TIME
     }
+  }
+
+  const toggleAvailabilityDay = (day) => {
+    setAvailabilityTemplate((prev) => {
+      const alreadySelected = prev.days.includes(day)
+      return {
+        ...prev,
+        days: alreadySelected ? prev.days.filter((selectedDay) => selectedDay !== day) : [...prev.days, day]
+      }
+    })
   }
 
   // Load resources and known type/location options on first render.
@@ -455,12 +479,15 @@ export default function Facilities() {
       return
     }
 
-    if (!availabilityTemplate.days.trim() || !availabilityTemplate.fromTime || !availabilityTemplate.toTime) {
+    const normalizedFromTime = availabilityTemplate.fromTime || DEFAULT_FROM_TIME
+    const normalizedToTime = availabilityTemplate.toTime || DEFAULT_TO_TIME
+
+    if (!availabilityTemplate.days.length) {
       setFormError('Availability days and time range are required')
       return
     }
 
-    if (availabilityTemplate.fromTime >= availabilityTemplate.toTime) {
+    if (normalizedFromTime >= normalizedToTime) {
       setFormError('Availability end time must be later than start time')
       return
     }
@@ -470,7 +497,11 @@ export default function Facilities() {
         ...form,
         name: trimmedName,
         capacity: form.capacity === '' ? null : Number(form.capacity),
-        availabilityWindows: formatAvailability(availabilityTemplate)
+        availabilityWindows: formatAvailability({
+          days: availabilityTemplate.days,
+          fromTime: normalizedFromTime,
+          toTime: normalizedToTime
+        })
       }
 
       // Handle custom location
@@ -590,7 +621,7 @@ export default function Facilities() {
     setOtherType('')
     setSelectedLocation('')
     setOtherLocation('')
-    setAvailabilityTemplate({ days: '', fromTime: '', toTime: '' })
+    setAvailabilityTemplate({ days: [], fromTime: DEFAULT_FROM_TIME, toTime: DEFAULT_TO_TIME })
     setFormError('')
     setResourceTypes(getAllResourceTypes())
     setResourceLocations(getAllResourceLocations())
@@ -635,7 +666,7 @@ export default function Facilities() {
               // Refresh options each time the modal opens.
               setResourceTypes(getAllResourceTypes())
               setResourceLocations(getAllResourceLocations())
-              setAvailabilityTemplate({ days: '', fromTime: '', toTime: '' })
+              setAvailabilityTemplate({ days: [], fromTime: DEFAULT_FROM_TIME, toTime: DEFAULT_TO_TIME })
               setShowForm(true)
             }}
               className="bg-blue-600 text-white px-5 py-2.5 rounded-xl hover:bg-blue-700 text-sm font-medium shadow-sm">
@@ -1005,24 +1036,43 @@ export default function Facilities() {
                   }}
                   className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-100" />
               )}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <select required value={availabilityTemplate.days}
-                  onChange={e => setAvailabilityTemplate({ ...availabilityTemplate, days: e.target.value })}
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-100">
-                  <option value="">Select days</option>
-                  {availabilityDayOptions.map((dayOption) => (
-                    <option key={dayOption} value={dayOption}>{dayOption}</option>
-                  ))}
-                  {availabilityTemplate.days && !availabilityDayOptions.includes(availabilityTemplate.days) && (
-                    <option value={availabilityTemplate.days}>{availabilityTemplate.days}</option>
-                  )}
-                </select>
-                <input required type="time" value={availabilityTemplate.fromTime}
-                  onChange={e => setAvailabilityTemplate({ ...availabilityTemplate, fromTime: e.target.value })}
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-100" />
-                <input required type="time" value={availabilityTemplate.toTime}
-                  onChange={e => setAvailabilityTemplate({ ...availabilityTemplate, toTime: e.target.value })}
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-100" />
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                  {AVAILABILITY_DAY_OPTIONS.map((dayOption) => {
+                    const isSelected = availabilityTemplate.days.includes(dayOption)
+
+                    return (
+                      <label
+                        key={dayOption}
+                        className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${isSelected ? 'border-blue-300 bg-blue-50' : 'border-gray-200 bg-white'}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleAvailabilityDay(dayOption)}
+                          className="h-4 w-4 accent-blue-600"
+                        />
+                        <span>{dayOption}</span>
+                      </label>
+                    )
+                  })}
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <input
+                    type="time"
+                    value={availabilityTemplate.fromTime || DEFAULT_FROM_TIME}
+                    max={availabilityTemplate.toTime || DEFAULT_TO_TIME}
+                    onChange={e => setAvailabilityTemplate({ ...availabilityTemplate, fromTime: e.target.value || DEFAULT_FROM_TIME })}
+                    className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                  />
+                  <input
+                    type="time"
+                    value={availabilityTemplate.toTime || DEFAULT_TO_TIME}
+                    min={availabilityTemplate.fromTime || DEFAULT_FROM_TIME}
+                    onChange={e => setAvailabilityTemplate({ ...availabilityTemplate, toTime: e.target.value || DEFAULT_TO_TIME })}
+                    className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                  />
+                </div>
               </div>
               <textarea placeholder="Description" value={form.description}
                 onChange={e => setForm({ ...form, description: e.target.value })}
