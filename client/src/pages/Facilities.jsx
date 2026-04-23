@@ -30,6 +30,7 @@ const AVAILABILITY_DAY_OPTIONS = [
 ]
 const DEFAULT_FROM_TIME = '08:00'
 const DEFAULT_TO_TIME = '20:00'
+const HIDDEN_RESOURCE_TYPES = ['Equipment - Projector', 'Equipment - Camera']
 
 const stripEquipmentPrefix = (value = '') => {
   const trimmed = value.trim()
@@ -965,9 +966,11 @@ export default function Facilities() {
                 }}
                 className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-100">
                 <option value="">Select Type</option>
-                {resourceTypes.map((type) => (
+                {resourceTypes
+                  .filter((type) => !HIDDEN_RESOURCE_TYPES.some((hiddenType) => hiddenType.toLowerCase() === type.toLowerCase()))
+                  .map((type) => (
                   <option key={type} value={type}>{type}</option>
-                ))}
+                  ))}
                 <option value="OTHER">Other Equipments</option>
               </select>
               {selectedType === 'OTHER' && (
