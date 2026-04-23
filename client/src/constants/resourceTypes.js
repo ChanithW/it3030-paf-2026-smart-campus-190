@@ -4,9 +4,7 @@ const LEGACY_RESOURCE_TYPES_STORAGE_KEY = 'resourceCustomTypes'
 export const BASE_RESOURCE_TYPES = [
   'Lecture Hall',
   'Lab',
-  'Meeting Room',
-  'Equipment - Projector',
-  'Equipment - Camera'
+  'Meeting Room'
 ]
 
 const normalizeType = (value) => value.trim()
