@@ -15,6 +15,7 @@ import com.smartcampus.api.repository.TicketRepository;
 import com.smartcampus.api.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -222,6 +223,7 @@ public class TicketService {
         return saved;
     }
 
+    @Transactional
     public void deleteTicket(String id, User user) {
         if (user.getRole() != Role.ADMIN) {
             throw new UnauthorizedException("Only admins can delete tickets");
