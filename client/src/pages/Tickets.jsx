@@ -165,11 +165,19 @@ export default function Tickets() {
 
       await fetchTickets()
 
-      const refreshed = await api.get(`/api/tickets/${id}`)
-      setSelectedTicket(refreshed.data)
+      try {
+        const refreshed = await api.get(`/api/tickets/${id}`)
+        setSelectedTicket(refreshed.data)
+      } catch (err) {
+        if (err.response?.status !== 404) {
+          console.error(err)
+        }
+      }
 
     } catch (err) {
-      console.error(err)
+      if (err.response?.status !== 404) {
+        console.error(err)
+      }
     }
   }
 
@@ -228,6 +236,12 @@ export default function Tickets() {
       setComments([])
       fetchTickets()
     } catch (err) {
+      if (err.response?.status === 404) {
+        setSelectedTicket(null)
+        setComments([])
+        fetchTickets()
+        return
+      }
       console.error(err)
       alert(err.response?.data?.message || 'Failed to delete ticket')
     }
