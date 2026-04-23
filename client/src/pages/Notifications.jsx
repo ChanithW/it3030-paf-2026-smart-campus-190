@@ -12,7 +12,7 @@ export default function Notifications() {
   const fetchNotifications = async () => {
     try {
       const res = await api.get('/api/notifications')
-      setNotifications(res.data)
+      setNotifications(res.data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)))
     } catch (err) {
       console.error(err)
     } finally {

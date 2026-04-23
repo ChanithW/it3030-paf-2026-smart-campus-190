@@ -13,6 +13,10 @@ export default function Bookings() {
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [filterStatus, setFilterStatus] = useState('')
+  const [filterDateFrom, setFilterDateFrom] = useState('')
+  const [filterDateTo, setFilterDateTo] = useState('')
+  const [filterResource, setFilterResource] = useState('')
+  const [filterUser, setFilterUser] = useState('')
   const [qrBooking, setQrBooking] = useState(null)
   const [selectedResourceType, setSelectedResourceType] = useState('')
   const [resourceTypes, setResourceTypes] = useState([])
@@ -20,6 +24,7 @@ export default function Bookings() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [editingBooking, setEditingBooking] = useState(null)
   const [form, setForm] = useState({
     resourceId: '', startTime: '', endTime: '', purpose: '', expectedAttendees: ''
   })
@@ -47,7 +52,7 @@ export default function Bookings() {
     try {
       const endpoint = user?.role === 'ADMIN' ? '/api/bookings' : '/api/bookings/my'
       const res = await api.get(endpoint)
-      setBookings(res.data)
+      setBookings(res.data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)))
     } catch (err) {
       console.error(err)
     } finally {
@@ -64,6 +69,21 @@ export default function Bookings() {
     }
   }
 
+  const toDatetimeLocal = (iso) => iso ? iso.slice(0, 16) : ''
+
+  const handleEdit = (booking) => {
+    setEditingBooking(booking)
+    setSelectedResourceType(booking.resource?.type || '')
+    setForm({
+      resourceId: booking.resource?.id || '',
+      startTime: toDatetimeLocal(booking.startTime),
+      endTime: toDatetimeLocal(booking.endTime),
+      purpose: booking.purpose || '',
+      expectedAttendees: booking.expectedAttendees || ''
+    })
+    setShowForm(true)
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
@@ -76,10 +96,16 @@ export default function Bookings() {
 
     setSubmitting(true)
     try {
-      await api.post('/api/bookings', form)
-      setSuccess('Booking request submitted successfully!')
+      if (editingBooking) {
+        await api.put(`/api/bookings/${editingBooking.id}`, form)
+        setSuccess('Booking updated successfully!')
+      } else {
+        await api.post('/api/bookings', form)
+        setSuccess('Booking request submitted successfully!')
+      }
       fetchBookings()
       setShowForm(false)
+      setEditingBooking(null)
       setSelectedResourceType('')
       setForm({ resourceId: '', startTime: '', endTime: '', purpose: '', expectedAttendees: '' })
       setTimeout(() => setSuccess(''), 3000)
@@ -109,6 +135,16 @@ export default function Bookings() {
     }
   }
 
+  const handleDelete = async (id) => {
+    if (!confirm('Permanently delete this booking? This cannot be undone.')) return
+    try {
+      await api.delete(`/api/bookings/${id}`)
+      fetchBookings()
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
   const statusConfig = {
     PENDING: { color: 'bg-yellow-100 text-yellow-700', label: 'Pending' },
     APPROVED: { color: 'bg-green-100 text-green-700', label: 'Approved' },
@@ -116,7 +152,14 @@ export default function Bookings() {
     CANCELLED: { color: 'bg-gray-100 text-gray-500', label: 'Cancelled' }
   }
 
-  const filtered = bookings.filter(b => !filterStatus || b.status === filterStatus)
+  const filtered = bookings.filter(b => {
+    if (filterStatus && b.status !== filterStatus) return false
+    if (filterDateFrom && new Date(b.startTime) < new Date(filterDateFrom)) return false
+    if (filterDateTo && new Date(b.startTime) > new Date(filterDateTo + 'T23:59:59')) return false
+    if (filterResource && !b.resource?.name?.toLowerCase().includes(filterResource.toLowerCase())) return false
+    if (filterUser && !b.user?.name?.toLowerCase().includes(filterUser.toLowerCase())) return false
+    return true
+  })
   const visibleResources = selectedResourceType
     ? resources.filter(r => r.type === selectedResourceType)
     : resources
@@ -154,17 +197,59 @@ export default function Bookings() {
         </div>
 
         {/* Filter */}
-        <div className="flex gap-2 mb-6 flex-wrap">
-          {['', 'PENDING', 'APPROVED', 'REJECTED', 'CANCELLED'].map(s => (
-            <button key={s} onClick={() => setFilterStatus(s)}
-              className={`px-4 py-2 rounded-xl text-sm font-medium transition ${
-                filterStatus === s
-                  ? 'bg-gray-800 text-white'
-                  : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
-              }`}>
-              {s || 'All'}
-            </button>
-          ))}
+        <div className="mb-6 space-y-3">
+          <div className="flex gap-2 flex-wrap">
+            {['', 'PENDING', 'APPROVED', 'REJECTED', 'CANCELLED'].map(s => (
+              <button key={s} onClick={() => setFilterStatus(s)}
+                className={`px-4 py-2 rounded-xl text-sm font-medium transition ${
+                  filterStatus === s
+                    ? 'bg-gray-800 text-white'
+                    : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+                }`}>
+                {s || 'All'}
+              </button>
+            ))}
+          </div>
+          {user?.role === 'ADMIN' && (
+            <div className="space-y-2">
+              <div className="flex gap-3 items-center flex-wrap">
+                <span className="text-sm text-gray-500 font-medium">Date range:</span>
+                <input type="date" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)}
+                  className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-200" />
+                <span className="text-gray-400 text-sm">to</span>
+                <input type="date" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)}
+                  className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-200" />
+                {(filterDateFrom || filterDateTo) && (
+                  <button onClick={() => { setFilterDateFrom(''); setFilterDateTo('') }}
+                    className="text-xs text-gray-400 hover:text-gray-600 underline">
+                    Clear dates
+                  </button>
+                )}
+              </div>
+              <div className="flex gap-3 flex-wrap">
+                <input
+                  type="text"
+                  placeholder="Filter by resource name..."
+                  value={filterResource}
+                  onChange={e => setFilterResource(e.target.value)}
+                  className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-200 w-56"
+                />
+                <input
+                  type="text"
+                  placeholder="Filter by user name..."
+                  value={filterUser}
+                  onChange={e => setFilterUser(e.target.value)}
+                  className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-200 w-56"
+                />
+                {(filterResource || filterUser) && (
+                  <button onClick={() => { setFilterResource(''); setFilterUser('') }}
+                    className="text-xs text-gray-400 hover:text-gray-600 underline">
+                    Clear
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {loading ? (
@@ -181,6 +266,9 @@ export default function Bookings() {
                         {statusConfig[b.status]?.label}
                       </span>
                     </div>
+                    {user?.role === 'ADMIN' && (
+                      <p className="text-sm text-gray-400 mb-1">👤 {b.user?.name || b.user?.email}</p>
+                    )}
                     <p className="text-sm text-gray-600 mb-2">📋 {b.purpose}</p>
                     <div className="flex gap-6 text-sm text-gray-500">
                       <span>🕐 {new Date(b.startTime).toLocaleString()}</span>
@@ -212,19 +300,29 @@ export default function Bookings() {
                       </div>
                     )}
                     {b.status === 'APPROVED' && (
-                      <div className="flex gap-2">
-                        <button
-                          onClick={(e) => { e.stopPropagation(); setQrBooking(b) }}
-                          className="text-sm bg-blue-50 text-blue-600 px-4 py-2 rounded-xl hover:bg-blue-100 font-medium">
-                          📱 QR Code
-                        </button>
-                        {b.user?.email === user?.email && (
-                          <button onClick={() => handleCancel(b.id)}
-                            className="text-sm bg-gray-50 text-gray-600 px-4 py-2 rounded-xl hover:bg-gray-100 font-medium">
-                            Cancel
-                          </button>
-                        )}
-                      </div>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setQrBooking(b) }}
+                        className="text-sm bg-blue-50 text-blue-600 px-4 py-2 rounded-xl hover:bg-blue-100 font-medium">
+                        📱 QR Code
+                      </button>
+                    )}
+                    {b.status === 'PENDING' && b.user?.email === user?.email && (
+                      <button onClick={() => handleEdit(b)}
+                        className="text-sm bg-yellow-50 text-yellow-700 px-4 py-2 rounded-xl hover:bg-yellow-100 font-medium">
+                        Edit
+                      </button>
+                    )}
+                    {(b.status === 'APPROVED' || b.status === 'PENDING') && b.user?.email === user?.email && (
+                      <button onClick={() => handleCancel(b.id)}
+                        className="text-sm bg-gray-50 text-gray-600 px-4 py-2 rounded-xl hover:bg-gray-100 font-medium">
+                        Cancel
+                      </button>
+                    )}
+                    {user?.role === 'ADMIN' && (
+                      <button onClick={() => handleDelete(b.id)}
+                        className="text-sm bg-red-50 text-red-600 px-4 py-2 rounded-xl hover:bg-red-100 font-medium">
+                        Delete
+                      </button>
                     )}
                   </div>
                 </div>
@@ -244,7 +342,7 @@ export default function Bookings() {
       {showForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl p-8 w-full max-w-lg shadow-2xl">
-            <h2 className="text-xl font-bold mb-6 text-gray-800">New Booking Request</h2>
+            <h2 className="text-xl font-bold mb-6 text-gray-800">{editingBooking ? 'Edit Booking' : 'New Booking Request'}</h2>
             {error && (
               <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-red-800 shadow-sm" role="alert" aria-live="assertive">
                 <p className="text-sm font-semibold">Please fix this issue</p>
@@ -315,12 +413,14 @@ export default function Bookings() {
               <div className="flex gap-3 pt-2">
                 <button type="submit" disabled={submitting || overCapacity}
                   className="flex-1 bg-green-600 text-white py-3 rounded-xl hover:bg-green-700 font-medium disabled:bg-gray-400 disabled:cursor-not-allowed">
-                  {submitting ? 'Submitting...' : 'Submit Request'}
+                  {submitting ? 'Saving...' : editingBooking ? 'Save Changes' : 'Submit Request'}
                 </button>
                 <button type="button" onClick={() => {
                     setShowForm(false)
+                    setEditingBooking(null)
                     setSelectedResourceType('')
                     setError('')
+                    setForm({ resourceId: '', startTime: '', endTime: '', purpose: '', expectedAttendees: '' })
                   }}
                   className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl hover:bg-gray-200 font-medium">
                   Cancel
