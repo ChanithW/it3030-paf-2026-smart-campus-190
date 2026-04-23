@@ -305,7 +305,7 @@ export default function Tickets() {
           placeholder="Search by keyword..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full mb-4 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-100"
+          className="w-1/2 mb-4 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-100"
         />
 
         <div className="flex gap-2 mb-6 flex-wrap">
