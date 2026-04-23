@@ -24,6 +24,7 @@ export default function Tickets() {
   const [comments, setComments] = useState([])
   const [newComment, setNewComment] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
   const [uploading, setUploading] = useState(false)
   const [selectedFiles, setSelectedFiles] = useState([])
   const [previewUrls, setPreviewUrls] = useState([])
@@ -270,7 +271,15 @@ export default function Tickets() {
     REJECTED: { color: 'bg-red-100 text-red-700', label: 'Rejected' }
   }
 
-  const filtered = tickets.filter(t => !filterStatus || t.status === filterStatus)
+  const filtered = tickets.filter(t => {
+    const matchesStatus = !filterStatus || t.status === filterStatus
+    const query = searchQuery.toLowerCase()
+    const matchesSearch = !query ||
+      t.category.toLowerCase().includes(query) ||
+      t.description.toLowerCase().includes(query) ||
+      t.location?.toLowerCase().includes(query)
+    return matchesStatus && matchesSearch
+  })
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -290,6 +299,14 @@ export default function Tickets() {
             + New Ticket
           </button>
         </div>
+
+        <input
+          type="text"
+          placeholder="Search by keyword..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full mb-4 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-100"
+        />
 
         <div className="flex gap-2 mb-6 flex-wrap">
           {['', 'OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED', 'REJECTED'].map(s => (
