@@ -15,6 +15,7 @@ import com.smartcampus.api.repository.TicketRepository;
 import com.smartcampus.api.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -78,64 +79,71 @@ public class TicketService {
         return saved;
     }
 
+    @Transactional
     public Ticket updateTicketStatus(String id, StatusUpdateRequest request) {
-        Ticket ticket = getTicketById(id);
-        TicketStatus newStatus = TicketStatus.valueOf(request.getStatus());
-        ticket.setStatus(newStatus);
+        try {
+            Ticket ticket = getTicketById(id);
+            TicketStatus newStatus = TicketStatus.valueOf(request.getStatus());
+            ticket.setStatus(newStatus);
 
-        if (request.getReason() != null) {
-            ticket.setRejectionReason(request.getReason());
+            if (request.getReason() != null) {
+                ticket.setRejectionReason(request.getReason());
+            }
+
+            if (request.getResolutionNotes() != null) {
+                ticket.setResolutionNotes(request.getResolutionNotes());
+            }
+
+            if (request.getAssignedToId() != null && !request.getAssignedToId().isEmpty()) {
+                User technician = userRepository.findById(request.getAssignedToId())
+                        .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+                ticket.setAssignedTo(technician);
+
+                notificationService.createNotification(
+                        technician,
+                        "You have been assigned to ticket: " + ticket.getCategory(),
+                        "TICKET",
+                        ticket.getId()
+                );
+            }
+
+            Ticket saved = ticketRepository.save(ticket);
+            User ticketOwner = ticket.getUser();
+
+            switch (newStatus) {
+                case IN_PROGRESS -> notificationService.createNotification(
+                        ticketOwner,
+                        "Your ticket '" + ticket.getCategory() + "' is now IN PROGRESS.",
+                        "TICKET",
+                        saved.getId()
+                );
+                case RESOLVED -> notificationService.createNotification(
+                        ticketOwner,
+                        "Your ticket '" + ticket.getCategory() + "' has been RESOLVED!",
+                        "TICKET",
+                        saved.getId()
+                );
+                case CLOSED -> notificationService.createNotification(
+                        ticketOwner,
+                        "Your ticket '" + ticket.getCategory() + "' has been CLOSED.",
+                        "TICKET",
+                        saved.getId()
+                );
+                case REJECTED -> notificationService.createNotification(
+                        ticketOwner,
+                        "Your ticket '" + ticket.getCategory() + "' has been REJECTED.",
+                        "TICKET",
+                        saved.getId()
+                );
+                default -> {}
+            }
+
+            return saved;
+        } catch (Exception e) {
+            System.err.println("Error updating ticket status: " + e.getMessage());
+            e.printStackTrace();
+            throw e;
         }
-
-        if (request.getResolutionNotes() != null) {
-            ticket.setResolutionNotes(request.getResolutionNotes());
-        }
-
-        if (request.getAssignedToId() != null) {
-            User technician = userRepository.findById(request.getAssignedToId())
-                    .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-            ticket.setAssignedTo(technician);
-
-            notificationService.createNotification(
-                    technician,
-                    "You have been assigned to ticket: " + ticket.getCategory(),
-                    "TICKET",
-                    ticket.getId()
-            );
-        }
-
-        Ticket saved = ticketRepository.save(ticket);
-        User ticketOwner = ticket.getUser();
-
-        switch (newStatus) {
-            case IN_PROGRESS -> notificationService.createNotification(
-                    ticketOwner,
-                    "Your ticket '" + ticket.getCategory() + "' is now IN PROGRESS.",
-                    "TICKET",
-                    saved.getId()
-            );
-            case RESOLVED -> notificationService.createNotification(
-                    ticketOwner,
-                    "Your ticket '" + ticket.getCategory() + "' has been RESOLVED!",
-                    "TICKET",
-                    saved.getId()
-            );
-            case CLOSED -> notificationService.createNotification(
-                    ticketOwner,
-                    "Your ticket '" + ticket.getCategory() + "' has been CLOSED.",
-                    "TICKET",
-                    saved.getId()
-            );
-            case REJECTED -> notificationService.createNotification(
-                    ticketOwner,
-                    "Your ticket '" + ticket.getCategory() + "' has been REJECTED.",
-                    "TICKET",
-                    saved.getId()
-            );
-            default -> {}
-        }
-
-        return saved;
     }
 
     public Comment addComment(String ticketId, CommentRequest request, User user) {
@@ -220,5 +228,22 @@ public class TicketService {
                 ));
 
         return saved;
+    }
+
+    @Transactional
+    public void deleteTicket(String id, User user) {
+        if (user.getRole() != Role.ADMIN) {
+            throw new UnauthorizedException("Only admins can delete tickets");
+        }
+
+        Ticket ticket = getTicketById(id);
+
+        if (ticket.getStatus() != TicketStatus.CLOSED && ticket.getStatus() != TicketStatus.REJECTED) {
+            throw new IllegalStateException("You can only delete tickets that are CLOSED or REJECTED");
+        }
+
+        List<Comment> comments = commentRepository.findByTicketId(id);
+        commentRepository.deleteAll(comments);
+        ticketRepository.delete(ticket);
     }
 }

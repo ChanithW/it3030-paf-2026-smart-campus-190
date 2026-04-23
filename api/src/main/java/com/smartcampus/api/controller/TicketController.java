@@ -175,4 +175,13 @@ public class TicketController {
         User user = userService.getUserByEmail(principal.getAttribute("email"));
         return ResponseEntity.ok(ticketService.updateTicket(id, request, user));
     }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteTicket(
+            @PathVariable String id,
+            @AuthenticationPrincipal OAuth2User principal) {
+        User user = userService.getUserByEmail(principal.getAttribute("email"));
+        ticketService.deleteTicket(id, user);
+        return ResponseEntity.noContent().build();
+    }
 }
