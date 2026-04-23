@@ -221,4 +221,20 @@ public class TicketService {
 
         return saved;
     }
+
+    public void deleteTicket(String id, User user) {
+        if (user.getRole() != Role.ADMIN) {
+            throw new UnauthorizedException("Only admins can delete tickets");
+        }
+
+        Ticket ticket = getTicketById(id);
+
+        if (ticket.getStatus() != TicketStatus.CLOSED && ticket.getStatus() != TicketStatus.REJECTED) {
+            throw new IllegalStateException("You can only delete tickets that are CLOSED or REJECTED");
+        }
+
+        List<Comment> comments = commentRepository.findByTicketId(id);
+        commentRepository.deleteAll(comments);
+        ticketRepository.delete(ticket);
+    }
 }
