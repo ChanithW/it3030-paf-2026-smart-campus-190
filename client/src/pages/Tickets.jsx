@@ -37,7 +37,7 @@ export default function Tickets() {
 
   const validateContact = (contact) => {
     const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/
-    const phoneRegex = /^\+?[0-9]{10}$/
+    const phoneRegex = /^0[0-9]{9}$/
     return emailRegex.test(contact) || phoneRegex.test(contact)
   }
 
@@ -110,7 +110,7 @@ export default function Tickets() {
     e.preventDefault()
 
     if (!validateContact(form.contactDetails)) {
-      alert('Please provide a valid email address or 10-digit phone number')
+      alert('Please provide a valid email address or 10-digit phone number starting with 0')
       return
     }
 
@@ -182,6 +182,10 @@ export default function Tickets() {
   }
 
   const handleUpdate = async () => {
+    if (!validateContact(editForm.contactDetails)) {
+      alert('Please provide a valid email address or 10-digit phone number starting with 0')
+      return
+    }
     try {
       await api.put(`/api/tickets/${selectedTicket.id}`, {
         ...editForm,
@@ -396,9 +400,20 @@ export default function Tickets() {
                   ))}
                 </select>
               </div>
-              <input required placeholder="Contact Details (Email or 10-digit Phone)" value={form.contactDetails}
-                onChange={e => setForm({ ...form, contactDetails: e.target.value })}
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-orange-100" />
+              <div className="space-y-1">
+                <input required placeholder="Contact Details (Email or 10-digit Phone)" value={form.contactDetails}
+                  onChange={e => setForm({ ...form, contactDetails: e.target.value })}
+                  className={`w-full border rounded-xl px-4 py-3 focus:outline-none focus:ring-2 ${
+                    form.contactDetails && !validateContact(form.contactDetails)
+                      ? 'border-red-300 focus:ring-red-100'
+                      : 'border-gray-200 focus:ring-orange-100'
+                  }`} />
+                {form.contactDetails && !validateContact(form.contactDetails) && (
+                  <p className="text-[10px] text-red-500 ml-1">
+                    Must be a valid email or 10-digit phone starting with 0
+                  </p>
+                )}
+              </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Attachments (up to 3 images)
@@ -546,13 +561,22 @@ export default function Tickets() {
             )}
 
             {isEditing ? (
-              <div className="mb-4">
+              <div className="mb-4 space-y-1">
                 <input
-                  className="w-full text-sm text-gray-500 border-b border-gray-100 focus:outline-none focus:border-orange-500 py-1"
+                  className={`w-full text-sm border-b focus:outline-none py-1 bg-transparent ${
+                    editForm.contactDetails && !validateContact(editForm.contactDetails)
+                      ? 'border-red-300 focus:border-red-500 text-red-600'
+                      : 'border-gray-100 focus:border-orange-500 text-gray-500'
+                  }`}
                   placeholder="Contact Details"
                   value={editForm.contactDetails}
                   onChange={e => setEditForm({ ...editForm, contactDetails: e.target.value })}
                 />
+                {editForm.contactDetails && !validateContact(editForm.contactDetails) && (
+                  <p className="text-[10px] text-red-500">
+                    Must be a valid email or 10-digit phone starting with 0
+                  </p>
+                )}
               </div>
             ) : (
               selectedTicket.contactDetails && (
