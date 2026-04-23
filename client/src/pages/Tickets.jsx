@@ -40,8 +40,8 @@ export default function Tickets() {
     return emailRegex.test(contact) || phoneRegex.test(contact)
   }
 
-  useEffect(() => { 
-    fetchTickets() 
+  useEffect(() => {
+    fetchTickets()
     fetchLocations()
     fetchTechnicians()
   }, [])
@@ -274,8 +274,8 @@ export default function Tickets() {
           {['', 'OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED', 'REJECTED'].map(s => (
             <button key={s} onClick={() => setFilterStatus(s)}
               className={`px-4 py-2 rounded-xl text-sm font-medium transition ${filterStatus === s
-                  ? 'bg-gray-800 text-white'
-                  : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+                ? 'bg-gray-800 text-white'
+                : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
                 }`}>
               {s ? statusConfig[s]?.label : 'All'}
             </button>
@@ -534,8 +534,8 @@ export default function Tickets() {
               <div className="flex gap-2 mb-6 flex-wrap bg-gray-50 p-4 rounded-xl">
                 <div className="w-full mb-3">
                   <p className="text-xs text-gray-500 mb-2 font-medium">Assign To:</p>
-                  <select 
-                    value={assigneeId} 
+                  <select
+                    value={assigneeId}
                     onChange={e => setAssigneeId(e.target.value)}
                     className="w-full text-xs bg-white border border-gray-200 rounded-lg p-2 focus:outline-none focus:ring-1 focus:ring-orange-100"
                   >
