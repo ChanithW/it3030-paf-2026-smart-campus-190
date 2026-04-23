@@ -20,7 +20,7 @@ export default function Tickets() {
   const [showForm, setShowForm] = useState(false)
   const [selectedTicket, setSelectedTicket] = useState(null)
   const [isEditing, setIsEditing] = useState(false)
-  const [editForm, setEditForm] = useState({ category: '', description: '', location: '' })
+  const [editForm, setEditForm] = useState({ category: '', description: '', location: '', contactDetails: '' })
   const [comments, setComments] = useState([])
   const [newComment, setNewComment] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
@@ -185,8 +185,7 @@ export default function Tickets() {
     try {
       await api.put(`/api/tickets/${selectedTicket.id}`, {
         ...editForm,
-        priority: selectedTicket.priority,
-        contactDetails: selectedTicket.contactDetails
+        priority: selectedTicket.priority
       })
       const refreshed = await api.get(`/api/tickets/${selectedTicket.id}`)
       setSelectedTicket(refreshed.data)
@@ -202,7 +201,8 @@ export default function Tickets() {
     setEditForm({
       category: selectedTicket.category,
       description: selectedTicket.description,
-      location: selectedTicket.location || ''
+      location: selectedTicket.location || '',
+      contactDetails: selectedTicket.contactDetails || ''
     })
     setIsEditing(true)
   }
@@ -542,6 +542,21 @@ export default function Tickets() {
             ) : (
               selectedTicket.location && (
                 <p className="text-sm text-gray-500 mb-3">📌 {selectedTicket.location}</p>
+              )
+            )}
+
+            {isEditing ? (
+              <div className="mb-4">
+                <input
+                  className="w-full text-sm text-gray-500 border-b border-gray-100 focus:outline-none focus:border-orange-500 py-1"
+                  placeholder="Contact Details"
+                  value={editForm.contactDetails}
+                  onChange={e => setEditForm({ ...editForm, contactDetails: e.target.value })}
+                />
+              </div>
+            ) : (
+              selectedTicket.contactDetails && (
+                <p className="text-sm text-gray-500 mb-3">📞 {selectedTicket.contactDetails}</p>
               )
             )}
 
