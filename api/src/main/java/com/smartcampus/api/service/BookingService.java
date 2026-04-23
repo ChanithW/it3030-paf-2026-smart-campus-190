@@ -32,11 +32,15 @@ public class BookingService {
     private final UserRepository userRepository;
 
     public List<Booking> getAllBookings() {
-        return bookingRepository.findAll();
+        return bookingRepository.findAll().stream()
+                .filter(b -> b.getStatus() != BookingStatus.DELETED)
+                .toList();
     }
 
     public List<Booking> getBookingsByUser(String userId) {
-        return bookingRepository.findByUserId(userId);
+        return bookingRepository.findByUserId(userId).stream()
+                .filter(b -> b.getStatus() != BookingStatus.DELETED)
+                .toList();
     }
 
     public List<Booking> getBookingsByStatus(BookingStatus status) {
@@ -285,6 +289,7 @@ public class BookingService {
             throw new UnauthorizedException("Only admins can delete bookings");
         }
         Booking booking = getBookingById(id);
-        bookingRepository.delete(booking);
+        booking.setStatus(BookingStatus.DELETED);
+        bookingRepository.save(booking);
     }
 }

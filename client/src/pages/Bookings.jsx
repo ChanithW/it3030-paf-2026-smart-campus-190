@@ -136,7 +136,7 @@ export default function Bookings() {
   }
 
   const handleDelete = async (id) => {
-    if (!confirm('Permanently delete this booking? This cannot be undone.')) return
+    if (!confirm('Delete this booking from the view?')) return
     try {
       await api.delete(`/api/bookings/${id}`)
       fetchBookings()
