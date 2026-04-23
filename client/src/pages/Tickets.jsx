@@ -24,6 +24,7 @@ export default function Tickets() {
   const [comments, setComments] = useState([])
   const [newComment, setNewComment] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
   const [uploading, setUploading] = useState(false)
   const [selectedFiles, setSelectedFiles] = useState([])
   const [previewUrls, setPreviewUrls] = useState([])
@@ -40,8 +41,8 @@ export default function Tickets() {
     return emailRegex.test(contact) || phoneRegex.test(contact)
   }
 
-  useEffect(() => { 
-    fetchTickets() 
+  useEffect(() => {
+    fetchTickets()
     fetchLocations()
     fetchTechnicians()
   }, [])
@@ -156,20 +157,27 @@ export default function Tickets() {
         reason = input || 'Rejected by admin'
       }
 
-      await api.patch(`/api/tickets/${id}/status`, {
+      const statusRes = await api.patch(`/api/tickets/${id}/status`, {
         status,
         resolutionNotes,
         reason,
-        assignedToId: assigneeId
+        assignedToId: assigneeId || null
       })
 
       await fetchTickets()
 
-      const refreshed = await api.get(`/api/tickets/${id}`)
-      setSelectedTicket(refreshed.data)
+      if (statusRes.data) {
+        setSelectedTicket(statusRes.data)
+      }
 
     } catch (err) {
-      console.error(err)
+      console.error('Status update failed:', err)
+      const errorMessage = err.response?.data?.message || 'Failed to update ticket status'
+      alert(errorMessage)
+      await fetchTickets()
+      if (selectedTicket) {
+        setSelectedTicket(null)
+      }
     }
   }
 
@@ -220,18 +228,31 @@ export default function Tickets() {
     }
   }
 
+  const handleDeleteTicket = async (id) => {
+    if (!confirm('Permanently delete this ticket? This action cannot be undone.')) return
+    try {
+      await api.delete(`/api/tickets/${id}`)
+      setSelectedTicket(null)
+      setComments([])
+      fetchTickets()
+    } catch (err) {
+      if (err.response?.status === 404) {
+        setSelectedTicket(null)
+        setComments([])
+        fetchTickets()
+        return
+      }
+      console.error(err)
+      alert(err.response?.data?.message || 'Failed to delete ticket')
+    }
+  }
+
   const openTicket = async (ticket) => {
     setIsEditing(false)
     setAssigneeId(ticket.assignedTo?.id || '')
-    try {
-      const res = await api.get(`/api/tickets/${ticket.id}`)
-      setSelectedTicket(res.data)
-      setAssigneeId(res.data.assignedTo?.id || '')
-      fetchComments(ticket.id)
-    } catch (err) {
-      setSelectedTicket(ticket)
-      fetchComments(ticket.id)
-    }
+    setSelectedTicket(ticket)
+    setAssigneeId(ticket.assignedTo?.id || '')
+    fetchComments(ticket.id)
   }
 
   const priorityConfig = {
@@ -249,7 +270,15 @@ export default function Tickets() {
     REJECTED: { color: 'bg-red-100 text-red-700', label: 'Rejected' }
   }
 
-  const filtered = tickets.filter(t => !filterStatus || t.status === filterStatus)
+  const filtered = tickets.filter(t => {
+    const matchesStatus = !filterStatus || t.status === filterStatus
+    const query = searchQuery.toLowerCase()
+    const matchesSearch = !query ||
+      t.category.toLowerCase().includes(query) ||
+      t.description.toLowerCase().includes(query) ||
+      t.location?.toLowerCase().includes(query)
+    return matchesStatus && matchesSearch
+  })
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -270,12 +299,20 @@ export default function Tickets() {
           </button>
         </div>
 
+        <input
+          type="text"
+          placeholder="Search by keyword..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-1/2 mb-4 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-100"
+        />
+
         <div className="flex gap-2 mb-6 flex-wrap">
           {['', 'OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED', 'REJECTED'].map(s => (
             <button key={s} onClick={() => setFilterStatus(s)}
               className={`px-4 py-2 rounded-xl text-sm font-medium transition ${filterStatus === s
-                  ? 'bg-gray-800 text-white'
-                  : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+                ? 'bg-gray-800 text-white'
+                : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
                 }`}>
               {s ? statusConfig[s]?.label : 'All'}
             </button>
@@ -302,7 +339,7 @@ export default function Tickets() {
                     </div>
                     <p className="text-sm text-gray-600 mb-2">{t.description}</p>
                     <div className="flex items-center gap-4">
-                      {t.location && <p className="text-sm text-gray-400">📍 {t.location}</p>}
+                      {t.location && <p className="text-sm text-gray-400">📌 {t.location}</p>}
                       {t.attachments?.length > 0 && (
                         <p className="text-sm text-gray-400">📎 {t.attachments.length} attachment{t.attachments.length > 1 ? 's' : ''}</p>
                       )}
@@ -470,13 +507,23 @@ export default function Tickets() {
               </div>
             </div>
 
-            <div className="flex gap-2 mb-4">
-              <span className={`text-xs px-3 py-1 rounded-full font-medium ${statusConfig[selectedTicket.status]?.color}`}>
-                {statusConfig[selectedTicket.status]?.label}
-              </span>
-              <span className={`text-xs px-3 py-1 rounded-full font-medium ${priorityConfig[selectedTicket.priority]?.color}`}>
-                {priorityConfig[selectedTicket.priority]?.label}
-              </span>
+            <div className="flex gap-2 mb-4 items-center justify-between">
+              <div className="flex gap-2">
+                <span className={`text-xs px-3 py-1 rounded-full font-medium ${statusConfig[selectedTicket.status]?.color}`}>
+                  {statusConfig[selectedTicket.status]?.label}
+                </span>
+                <span className={`text-xs px-3 py-1 rounded-full font-medium ${priorityConfig[selectedTicket.priority]?.color}`}>
+                  {priorityConfig[selectedTicket.priority]?.label}
+                </span>
+              </div>
+              {user?.role === 'ADMIN' && (selectedTicket.status === 'CLOSED' || selectedTicket.status === 'REJECTED') && (
+                <button
+                  onClick={() => handleDeleteTicket(selectedTicket.id)}
+                  className="text-xs px-3 py-1 rounded-lg font-medium bg-red-100 text-red-700 hover:bg-red-200 transition"
+                >
+                  Delete Ticket
+                </button>
+              )}
             </div>
 
             {isEditing ? (
@@ -494,7 +541,7 @@ export default function Tickets() {
               </div>
             ) : (
               selectedTicket.location && (
-                <p className="text-sm text-gray-500 mb-3">📍 {selectedTicket.location}</p>
+                <p className="text-sm text-gray-500 mb-3">📌 {selectedTicket.location}</p>
               )
             )}
 
@@ -530,12 +577,12 @@ export default function Tickets() {
               </div>
             )}
 
-            {(user?.role === 'ADMIN' || user?.role === 'TECHNICIAN') && (
+{(user?.role === 'ADMIN' || user?.role === 'TECHNICIAN') && (
               <div className="flex gap-2 mb-6 flex-wrap bg-gray-50 p-4 rounded-xl">
                 <div className="w-full mb-3">
                   <p className="text-xs text-gray-500 mb-2 font-medium">Assign To:</p>
-                  <select 
-                    value={assigneeId} 
+                  <select
+                    value={assigneeId}
                     onChange={e => setAssigneeId(e.target.value)}
                     className="w-full text-xs bg-white border border-gray-200 rounded-lg p-2 focus:outline-none focus:ring-1 focus:ring-orange-100"
                   >
