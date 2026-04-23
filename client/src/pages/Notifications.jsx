@@ -39,6 +39,7 @@ export default function Notifications() {
   }
 
   const deleteNotification = async (id) => {
+  if (!confirm('Delete this notification?')) return
     try {
       await api.delete(`/api/notifications/${id}`)
       fetchNotifications()
