@@ -25,6 +25,7 @@ export default function Bookings() {
   const [success, setSuccess] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [editingBooking, setEditingBooking] = useState(null)
+  const [remainingSeats, setRemainingSeats] = useState(null)
   const [form, setForm] = useState({
     resourceId: '', startTime: '', endTime: '', purpose: '', expectedAttendees: ''
   })
@@ -47,6 +48,24 @@ export default function Bookings() {
     window.addEventListener('resource-locations-changed', handleLocationsChanged)
     return () => window.removeEventListener('resource-locations-changed', handleLocationsChanged)
   }, [])
+
+  useEffect(() => {
+    const fetchRemainingCapacity = async () => {
+      if (form.resourceId && form.startTime && form.endTime && selectedResource?.type === 'Lab') {
+        try {
+          const start = form.startTime.length === 16 ? form.startTime + ':00' : form.startTime
+          const end = form.endTime.length === 16 ? form.endTime + ':00' : form.endTime
+          const res = await api.get(`/api/bookings/remaining-capacity?resourceId=${form.resourceId}&startTime=${start}&endTime=${end}`)
+          setRemainingSeats(res.data)
+        } catch {
+          setRemainingSeats(null)
+        }
+      } else {
+        setRemainingSeats(null)
+      }
+    }
+    fetchRemainingCapacity()
+  }, [form.resourceId, form.startTime, form.endTime])
 
   const fetchBookings = async () => {
     try {
@@ -110,7 +129,11 @@ export default function Bookings() {
     }
 
     if (overCapacity) {
-      setError(`This resource cannot be booked for ${form.expectedAttendees} attendees. Maximum capacity is ${selectedResource.capacity}.`)
+      setError(
+        selectedResource?.type === 'Lab' && remainingSeats !== null
+          ? `Only ${remainingSeats} seats remaining for this time slot.`
+          : `This resource cannot be booked for ${form.expectedAttendees} attendees. Maximum capacity is ${selectedResource.capacity}.`
+      )
       return
     }
 
@@ -185,10 +208,14 @@ export default function Bookings() {
     : resources
   const selectedResource = resources.find(r => r.id === form.resourceId)
   const hasCapacity = !!(selectedResource?.capacity)
+  const effectiveCapacity = (selectedResource?.type === 'Lab' && remainingSeats !== null)
+    ? remainingSeats
+    : selectedResource?.capacity
   const overCapacity = !!(
-    selectedResource?.capacity &&
+    effectiveCapacity !== null &&
+    effectiveCapacity !== undefined &&
     form.expectedAttendees &&
-    Number(form.expectedAttendees) > Number(selectedResource.capacity)
+    Number(form.expectedAttendees) > Number(effectiveCapacity)
   )
 
   return (
@@ -416,7 +443,12 @@ export default function Bookings() {
                 return (
                   <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-2 text-green-700 text-xs flex items-center gap-2">
                     <span className="text-green-500">🕐</span>
-                    <span><span className="font-semibold">Available:</span> {days} | {start} – {end}</span>
+                    <span>
+                    <span className="font-semibold">Available:</span> {days} | {start} – {end}
+                    {remainingSeats !== null && (
+                      <span className="ml-2 font-semibold">· {remainingSeats} seats remaining</span>
+                    )}
+                  </span>
                   </div>
                 )
               })()}
@@ -448,7 +480,9 @@ export default function Bookings() {
                 <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800">
                   <p className="text-sm font-semibold">Capacity exceeded</p>
                   <p className="mt-1 text-sm">
-                    This resource supports up to {selectedResource.capacity} attendees.
+                    {selectedResource?.type === 'Lab' && remainingSeats !== null
+                      ? `Only ${remainingSeats} seats remaining for this time slot.`
+                      : `This resource supports up to ${selectedResource?.capacity} attendees.`}
                   </p>
                 </div>
               )}

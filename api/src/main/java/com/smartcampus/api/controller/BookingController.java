@@ -15,6 +15,8 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
+
 import java.util.List;
 
 @RestController
@@ -37,6 +39,16 @@ public class BookingController {
     @GetMapping("/{id}")
     public ResponseEntity<Booking> getBookingById(@PathVariable String id) {
         return ResponseEntity.ok(bookingService.getBookingById(id));
+    }
+
+    @GetMapping("/remaining-capacity")
+    public ResponseEntity<Integer> getRemainingCapacity(
+            @RequestParam String resourceId,
+            @RequestParam String startTime,
+            @RequestParam String endTime) {
+        LocalDateTime start = LocalDateTime.parse(startTime);
+        LocalDateTime end = LocalDateTime.parse(endTime);
+        return ResponseEntity.ok(bookingService.getRemainingCapacity(resourceId, start, end));
     }
 
     @GetMapping("/my")
