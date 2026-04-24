@@ -128,6 +128,11 @@ export default function Bookings() {
       return
     }
 
+    if (hasCapacity && !form.expectedAttendees) {
+      setError('Please enter the expected number of attendees.')
+      return
+    }
+
     if (overCapacity) {
       setError(
         selectedResource?.type === 'Lab' && remainingSeats !== null
@@ -472,7 +477,7 @@ export default function Bookings() {
                 onChange={e => setForm({ ...form, purpose: e.target.value })}
                 className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-100" />
               {hasCapacity && (
-                <input placeholder="Expected Attendees" type="number" value={form.expectedAttendees}
+                <input required placeholder="Expected Attendees" type="number" min="1" value={form.expectedAttendees}
                   onChange={e => setForm({ ...form, expectedAttendees: e.target.value })}
                   className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-100" />
               )}
