@@ -27,6 +27,9 @@ export default function Bookings() {
   const [editingBooking, setEditingBooking] = useState(null)
   const [remainingSeats, setRemainingSeats] = useState(null)
   const [slotAvailable, setSlotAvailable] = useState(null)
+  const [showReport, setShowReport] = useState(false)
+  const [reportUsers, setReportUsers] = useState([])
+  const [reportLoading, setReportLoading] = useState(false)
   const [form, setForm] = useState({
     resourceId: '', startTime: '', endTime: '', purpose: '', expectedAttendees: ''
   })
@@ -207,6 +210,53 @@ export default function Bookings() {
     }
   }
 
+  const handleGenerateReport = async () => {
+    setReportLoading(true)
+    try {
+      const res = await api.get('/api/auth/users')
+      const users = res.data
+      const enriched = users.map(u => {
+        const userBookings = bookings.filter(b => b.user?.email === u.email)
+        return {
+          ...u,
+          totalBookings: userBookings.length,
+          pending: userBookings.filter(b => b.status === 'PENDING').length,
+          approved: userBookings.filter(b => b.status === 'APPROVED').length,
+          rejected: userBookings.filter(b => b.status === 'REJECTED').length,
+          cancelled: userBookings.filter(b => b.status === 'CANCELLED').length,
+        }
+      })
+      setReportUsers(enriched)
+      setShowReport(true)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setReportLoading(false)
+    }
+  }
+
+  const downloadCSV = () => {
+    const headers = ['Name', 'Email', 'Role', 'Total Bookings', 'Pending', 'Approved', 'Rejected', 'Cancelled']
+    const rows = reportUsers.map(u => [
+      u.name || '',
+      u.email || '',
+      u.role || '',
+      u.totalBookings,
+      u.pending,
+      u.approved,
+      u.rejected,
+      u.cancelled,
+    ])
+    const csv = [headers, ...rows].map(r => r.map(v => `"${v}"`).join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `booking-report-${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   const statusConfig = {
     PENDING: { color: 'bg-yellow-100 text-yellow-700', label: 'Pending' },
     APPROVED: { color: 'bg-green-100 text-green-700', label: 'Approved' },
@@ -256,10 +306,20 @@ export default function Bookings() {
               {user?.role === 'ADMIN' ? 'Manage all booking requests' : 'Your booking requests'}
             </p>
           </div>
-          <button onClick={() => setShowForm(true)}
-            className="bg-green-600 text-white px-5 py-2.5 rounded-xl hover:bg-green-700 text-sm font-medium shadow-sm">
-            + New Booking
-          </button>
+          <div className="flex gap-3">
+            {user?.role === 'ADMIN' && (
+              <button
+                onClick={handleGenerateReport}
+                disabled={reportLoading}
+                className="bg-blue-600 text-white px-5 py-2.5 rounded-xl hover:bg-blue-700 text-sm font-medium shadow-sm disabled:opacity-60 disabled:cursor-not-allowed">
+                {reportLoading ? 'Generating...' : 'Generate Report'}
+              </button>
+            )}
+            <button onClick={() => setShowForm(true)}
+              className="bg-green-600 text-white px-5 py-2.5 rounded-xl hover:bg-green-700 text-sm font-medium shadow-sm">
+              + New Booking
+            </button>
+          </div>
         </div>
 
         {/* Filter */}
@@ -527,6 +587,110 @@ export default function Bookings() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Report Modal */}
+      {showReport && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between px-8 py-5 border-b border-gray-100">
+              <div>
+                <h2 className="text-xl font-bold text-gray-800">Booking Report</h2>
+                <p className="text-sm text-gray-400 mt-0.5">
+                  Generated on {new Date().toLocaleString()} · {reportUsers.length} users
+                </p>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={downloadCSV}
+                  className="bg-green-600 text-white px-4 py-2 rounded-xl hover:bg-green-700 text-sm font-medium">
+                  ⬇ Download CSV
+                </button>
+                <button
+                  onClick={() => setShowReport(false)}
+                  className="bg-gray-100 text-gray-700 px-4 py-2 rounded-xl hover:bg-gray-200 text-sm font-medium">
+                  Close
+                </button>
+              </div>
+            </div>
+
+            {/* Summary cards */}
+            <div className="grid grid-cols-4 gap-4 px-8 py-4 border-b border-gray-100">
+              {[
+                { label: 'Total Users', value: reportUsers.length, color: 'text-gray-800' },
+                { label: 'Total Bookings', value: reportUsers.reduce((s, u) => s + u.totalBookings, 0), color: 'text-blue-600' },
+                { label: 'Approved', value: reportUsers.reduce((s, u) => s + u.approved, 0), color: 'text-green-600' },
+                { label: 'Pending', value: reportUsers.reduce((s, u) => s + u.pending, 0), color: 'text-yellow-600' },
+              ].map(card => (
+                <div key={card.label} className="bg-gray-50 rounded-xl px-4 py-3 text-center">
+                  <p className={`text-2xl font-bold ${card.color}`}>{card.value}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">{card.label}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Table */}
+            <div className="overflow-auto flex-1 px-8 py-4">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs text-gray-400 uppercase tracking-wide border-b border-gray-100">
+                    <th className="pb-3 font-semibold">User</th>
+                    <th className="pb-3 font-semibold">Email</th>
+                    <th className="pb-3 font-semibold">Role</th>
+                    <th className="pb-3 font-semibold text-center">Total</th>
+                    <th className="pb-3 font-semibold text-center">Pending</th>
+                    <th className="pb-3 font-semibold text-center">Approved</th>
+                    <th className="pb-3 font-semibold text-center">Rejected</th>
+                    <th className="pb-3 font-semibold text-center">Cancelled</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {reportUsers.map(u => (
+                    <tr key={u.id} className="hover:bg-gray-50 transition">
+                      <td className="py-3">
+                        <div className="flex items-center gap-2">
+                          {u.profilePicture
+                            ? <img src={u.profilePicture} alt="" className="w-7 h-7 rounded-full object-cover" />
+                            : <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-xs">
+                                {u.name?.charAt(0)?.toUpperCase() || '?'}
+                              </div>
+                          }
+                          <span className="font-medium text-gray-800">{u.name || '—'}</span>
+                        </div>
+                      </td>
+                      <td className="py-3 text-gray-500">{u.email}</td>
+                      <td className="py-3">
+                        <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                          u.role === 'ADMIN' ? 'bg-purple-100 text-purple-700'
+                          : u.role === 'TECHNICIAN' ? 'bg-blue-100 text-blue-700'
+                          : 'bg-gray-100 text-gray-600'
+                        }`}>
+                          {u.role}
+                        </span>
+                      </td>
+                      <td className="py-3 text-center font-semibold text-gray-800">{u.totalBookings}</td>
+                      <td className="py-3 text-center">
+                        <span className={u.pending > 0 ? 'text-yellow-600 font-medium' : 'text-gray-300'}>{u.pending}</span>
+                      </td>
+                      <td className="py-3 text-center">
+                        <span className={u.approved > 0 ? 'text-green-600 font-medium' : 'text-gray-300'}>{u.approved}</span>
+                      </td>
+                      <td className="py-3 text-center">
+                        <span className={u.rejected > 0 ? 'text-red-500 font-medium' : 'text-gray-300'}>{u.rejected}</span>
+                      </td>
+                      <td className="py-3 text-center">
+                        <span className={u.cancelled > 0 ? 'text-gray-500 font-medium' : 'text-gray-300'}>{u.cancelled}</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {reportUsers.length === 0 && (
+                <p className="text-center text-gray-400 py-12">No users found.</p>
+              )}
+            </div>
           </div>
         </div>
       )}
