@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import Navbar from '../components/Navbar'
 import { useState, useEffect } from 'react'
 import api from '../api/axios'
+import campusBg from '../assets/campus.png'
 
 export default function Dashboard() {
   const { user } = useAuth()
@@ -36,7 +37,13 @@ export default function Dashboard() {
   ]
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen relative">
+      {/* Background */}
+      <div className="fixed inset-0 -z-10">
+        <img src={campusBg} alt="" className="w-full h-full object-cover" />
+        <div className="absolute inset-0 bg-white bg-opacity-85"></div>
+      </div>
+
       <Navbar />
 
       {/* First Time Login Welcome Message */}
