@@ -62,7 +62,18 @@ public class BookingService {
         List<Booking> conflicts = bookingRepository.findConflictingBookings(
                 resource, request.getStartTime(), request.getEndTime());
 
-        if (!conflicts.isEmpty()) {
+        boolean isLab = "Lab".equalsIgnoreCase(resource.getType());
+        if (isLab && resource.getCapacity() != null && request.getExpectedAttendees() != null) {
+            int alreadyBooked = conflicts.stream()
+                    .mapToInt(b -> b.getExpectedAttendees() != null ? b.getExpectedAttendees() : 0)
+                    .sum();
+            int remaining = resource.getCapacity() - alreadyBooked;
+            if (request.getExpectedAttendees() > remaining) {
+                throw new BookingConflictException(
+                        "Only " + remaining + " seats remaining for this time slot in " + resource.getName() + "."
+                );
+            }
+        } else if (!conflicts.isEmpty()) {
             throw new BookingConflictException("Resource is already booked for the selected time range");
         }
 
@@ -231,7 +242,18 @@ public class BookingService {
                 .filter(b -> !b.getId().equals(id))
                 .toList();
 
-        if (!conflicts.isEmpty()) {
+        boolean isLabUpdate = "Lab".equalsIgnoreCase(resource.getType());
+        if (isLabUpdate && resource.getCapacity() != null && request.getExpectedAttendees() != null) {
+            int alreadyBooked = conflicts.stream()
+                    .mapToInt(b -> b.getExpectedAttendees() != null ? b.getExpectedAttendees() : 0)
+                    .sum();
+            int remaining = resource.getCapacity() - alreadyBooked;
+            if (request.getExpectedAttendees() > remaining) {
+                throw new BookingConflictException(
+                        "Only " + remaining + " seats remaining for this time slot in " + resource.getName() + "."
+                );
+            }
+        } else if (!conflicts.isEmpty()) {
             throw new BookingConflictException("Resource is already booked for the selected time range");
         }
 
@@ -276,6 +298,25 @@ public class BookingService {
         }
 
         return saved;
+    }
+
+    public boolean isResourceAvailable(String resourceId, LocalDateTime startTime, LocalDateTime endTime) {
+        Resource resource = resourceRepository.findById(resourceId).orElse(null);
+        if (resource == null) return false;
+        List<Booking> conflicts = bookingRepository.findConflictingBookings(resource, startTime, endTime);
+        return conflicts.isEmpty();
+    }
+
+    public Integer getRemainingCapacity(String resourceId, LocalDateTime startTime, LocalDateTime endTime) {
+        Resource resource = resourceRepository.findById(resourceId).orElse(null);
+        if (resource == null || resource.getCapacity() == null || !"Lab".equalsIgnoreCase(resource.getType())) {
+            return null;
+        }
+        List<Booking> conflicts = bookingRepository.findConflictingBookings(resource, startTime, endTime);
+        int alreadyBooked = conflicts.stream()
+                .mapToInt(b -> b.getExpectedAttendees() != null ? b.getExpectedAttendees() : 0)
+                .sum();
+        return resource.getCapacity() - alreadyBooked;
     }
 
     public Booking cancelBooking(String id, User user) {

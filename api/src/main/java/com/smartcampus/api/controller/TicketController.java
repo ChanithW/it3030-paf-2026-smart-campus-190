@@ -41,11 +41,12 @@ public class TicketController {
 
     @GetMapping
     public ResponseEntity<List<Ticket>> getAllTickets(
-            @RequestParam(required = false) TicketStatus status) {
+            @RequestParam(required = false) TicketStatus status,
+            @RequestParam(defaultValue = "false") boolean includeHidden) {
         if (status != null) {
             return ResponseEntity.ok(ticketService.getTicketsByStatus(status));
         }
-        return ResponseEntity.ok(ticketService.getAllTickets());
+        return ResponseEntity.ok(ticketService.getAllTickets(includeHidden));
     }
 
     @GetMapping("/{id}")

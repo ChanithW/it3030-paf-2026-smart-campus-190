@@ -18,6 +18,7 @@ export default function Tickets() {
   const { user } = useAuth()
   const [tickets, setTickets] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [selectedTicket, setSelectedTicket] = useState(null)
   const [isEditing, setIsEditing] = useState(false)
@@ -43,20 +44,27 @@ export default function Tickets() {
   }
 
   useEffect(() => {
-    fetchTickets()
-    fetchLocations()
-    fetchTechnicians()
-  }, [])
+    if (user) {
+      fetchTickets()
+      fetchLocations()
+      fetchTechnicians()
+    }
+  }, [user])
 
   const fetchTickets = async () => {
     try {
+      setError('')
       const endpoint = user?.role === 'ADMIN' || user?.role === 'TECHNICIAN'
         ? '/api/tickets'
         : '/api/tickets/my'
+      console.log(`Fetching tickets from: ${endpoint} for role: ${user?.role}`)
       const res = await api.get(endpoint)
       setTickets(res.data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)))
     } catch (err) {
-      console.error(err)
+      console.error('Error fetching tickets:', err)
+      const message = err.response?.data?.message || err.message || 'Unknown error'
+      const status = err.response?.status
+      setError(`Failed to load tickets: ${status ? `[${status}] ` : ''}${message}`)
     } finally {
       setLoading(false)
     }
@@ -233,8 +241,12 @@ export default function Tickets() {
     }
   }
 
-  const handleDeleteTicket = async (id) => {
-    if (!confirm('Permanently delete this ticket? This action cannot be undone.')) return
+  const handleDeleteTicket = async (id, isWithdrawal = false) => {
+    const message = isWithdrawal 
+      ? 'Are you sure you want to withdraw this ticket?' 
+      : 'Are you sure you want to remove this ticket from view?'
+    if (!confirm(message)) return
+    
     try {
       await api.delete(`/api/tickets/${id}`)
       setSelectedTicket(null)
@@ -249,6 +261,44 @@ export default function Tickets() {
       }
       console.error(err)
       alert(err.response?.data?.message || 'Failed to delete ticket')
+    }
+  }
+
+  const downloadCSV = async () => {
+    try {
+      const res = await api.get('/api/tickets?includeHidden=true')
+      const allTickets = res.data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      
+      const headers = ['ID', 'User', 'Category', 'Description', 'Priority', 'Status', 'Location', 'Is Hidden', 'Created At']
+      const rows = allTickets.map(t => [
+        t.id,
+        t.user?.name || t.user?.email,
+        t.category,
+        t.description.replace(/,/g, ';'), 
+        t.priority,
+        t.status,
+        t.location || 'N/A',
+        t.hiddenByAdmin ? 'YES' : 'NO',
+        new Date(t.createdAt).toLocaleString()
+      ])
+
+      const csvContent = [
+        headers.join(','),
+        ...rows.map(row => row.join(','))
+      ].join('\n')
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.setAttribute('href', url)
+      link.setAttribute('download', `tickets_full_export_${new Date().toISOString().split('T')[0]}.csv`)
+      link.style.visibility = 'hidden'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+    } catch (err) {
+      console.error('Error exporting CSV:', err)
+      alert('Failed to export CSV.')
     }
   }
 
@@ -293,6 +343,13 @@ export default function Tickets() {
       </div>
       <Navbar />
       <div className="max-w-5xl mx-auto px-6 py-8">
+        {error && (
+          <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-red-800 shadow-sm">
+            <p className="text-sm font-semibold">Error</p>
+            <p className="mt-1 text-sm">{error}</p>
+          </div>
+        )}
+
         <div className="flex justify-between items-center mb-6">
           <div>
             <h1 className="text-2xl font-bold text-gray-800">Incident Tickets</h1>
@@ -302,10 +359,18 @@ export default function Tickets() {
                   'Your incident reports'}
             </p>
           </div>
-          <button onClick={() => setShowForm(true)}
-            className="bg-orange-500 text-white px-5 py-2.5 rounded-xl hover:bg-orange-600 text-sm font-medium shadow-sm">
-            + New Ticket
-          </button>
+          <div className="flex gap-3">
+            {(user?.role === 'ADMIN' || user?.role === 'TECHNICIAN') && (
+              <button onClick={downloadCSV}
+                className="bg-white text-gray-700 border border-gray-200 px-5 py-2.5 rounded-xl hover:bg-gray-50 text-sm font-medium shadow-sm flex items-center gap-2">
+                📥 Export CSV
+              </button>
+            )}
+            <button onClick={() => setShowForm(true)}
+              className="bg-orange-500 text-white px-5 py-2.5 rounded-xl hover:bg-orange-600 text-sm font-medium shadow-sm">
+              + New Ticket
+            </button>
+          </div>
         </div>
 
         <input
@@ -536,14 +601,24 @@ export default function Tickets() {
                   {priorityConfig[selectedTicket.priority]?.label}
                 </span>
               </div>
-              {user?.role === 'ADMIN' && (selectedTicket.status === 'CLOSED' || selectedTicket.status === 'REJECTED') && (
-                <button
-                  onClick={() => handleDeleteTicket(selectedTicket.id)}
-                  className="text-xs px-3 py-1 rounded-lg font-medium bg-red-100 text-red-700 hover:bg-red-200 transition"
-                >
-                  Delete Ticket
-                </button>
-              )}
+              <div className="flex gap-2">
+                {user?.role === 'ADMIN' && (selectedTicket.status === 'CLOSED' || selectedTicket.status === 'REJECTED') && (
+                  <button
+                    onClick={() => handleDeleteTicket(selectedTicket.id)}
+                    className="text-xs px-3 py-1 rounded-lg font-medium bg-red-100 text-red-700 hover:bg-red-200 transition"
+                  >
+                    Delete Ticket
+                  </button>
+                )}
+                {selectedTicket.user?.email === user?.email && selectedTicket.status === 'OPEN' && (
+                  <button
+                    onClick={() => handleDeleteTicket(selectedTicket.id, true)}
+                    className="text-xs px-3 py-1 rounded-lg font-medium bg-red-100 text-red-700 hover:bg-red-200 transition"
+                  >
+                    Withdraw Ticket
+                  </button>
+                )}
+              </div>
             </div>
 
             {isEditing ? (

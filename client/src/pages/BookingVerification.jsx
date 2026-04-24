@@ -70,9 +70,6 @@ export default function BookingVerification() {
               {loading ? 'Checking...' : 'Verify'}
             </button>
           </div>
-          <p className="text-xs text-gray-400 mt-2">
-            💡 Tip: Scan the QR code with a QR reader to get the booking ID, then paste it here
-          </p>
         </div>
 
         {/* Error */}
