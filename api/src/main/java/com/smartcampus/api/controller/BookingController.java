@@ -41,6 +41,16 @@ public class BookingController {
         return ResponseEntity.ok(bookingService.getBookingById(id));
     }
 
+    @GetMapping("/is-available")
+    public ResponseEntity<Boolean> isResourceAvailable(
+            @RequestParam String resourceId,
+            @RequestParam String startTime,
+            @RequestParam String endTime) {
+        LocalDateTime start = LocalDateTime.parse(startTime);
+        LocalDateTime end = LocalDateTime.parse(endTime);
+        return ResponseEntity.ok(bookingService.isResourceAvailable(resourceId, start, end));
+    }
+
     @GetMapping("/remaining-capacity")
     public ResponseEntity<Integer> getRemainingCapacity(
             @RequestParam String resourceId,

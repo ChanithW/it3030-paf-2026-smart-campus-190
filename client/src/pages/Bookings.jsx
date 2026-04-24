@@ -26,6 +26,7 @@ export default function Bookings() {
   const [submitting, setSubmitting] = useState(false)
   const [editingBooking, setEditingBooking] = useState(null)
   const [remainingSeats, setRemainingSeats] = useState(null)
+  const [slotAvailable, setSlotAvailable] = useState(null)
   const [form, setForm] = useState({
     resourceId: '', startTime: '', endTime: '', purpose: '', expectedAttendees: ''
   })
@@ -50,21 +51,33 @@ export default function Bookings() {
   }, [])
 
   useEffect(() => {
-    const fetchRemainingCapacity = async () => {
-      if (form.resourceId && form.startTime && form.endTime && selectedResource?.type === 'Lab') {
+    const checkSlot = async () => {
+      if (!form.resourceId || !form.startTime || !form.endTime) {
+        setRemainingSeats(null)
+        setSlotAvailable(null)
+        return
+      }
+      const start = form.startTime.length === 16 ? form.startTime + ':00' : form.startTime
+      const end = form.endTime.length === 16 ? form.endTime + ':00' : form.endTime
+      if (selectedResource?.type === 'Lab') {
         try {
-          const start = form.startTime.length === 16 ? form.startTime + ':00' : form.startTime
-          const end = form.endTime.length === 16 ? form.endTime + ':00' : form.endTime
           const res = await api.get(`/api/bookings/remaining-capacity?resourceId=${form.resourceId}&startTime=${start}&endTime=${end}`)
           setRemainingSeats(res.data)
         } catch {
           setRemainingSeats(null)
         }
+        setSlotAvailable(null)
       } else {
         setRemainingSeats(null)
+        try {
+          const res = await api.get(`/api/bookings/is-available?resourceId=${form.resourceId}&startTime=${start}&endTime=${end}`)
+          setSlotAvailable(res.data)
+        } catch {
+          setSlotAvailable(null)
+        }
       }
     }
-    fetchRemainingCapacity()
+    checkSlot()
   }, [form.resourceId, form.startTime, form.endTime])
 
   const fetchBookings = async () => {
@@ -474,6 +487,11 @@ export default function Bookings() {
                     className="w-full border border-gray-200 rounded-xl px-4 py-3 mt-1 focus:outline-none focus:ring-2 focus:ring-green-100" />
                 </div>
               </div>
+              {slotAvailable === false && (
+                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-red-700 text-sm font-medium">
+                  This resource is already booked for the selected time slot.
+                </div>
+              )}
               <input required placeholder="Purpose of booking" value={form.purpose}
                 onChange={e => setForm({ ...form, purpose: e.target.value })}
                 className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-100" />
@@ -493,7 +511,7 @@ export default function Bookings() {
                 </div>
               )}
               <div className="flex gap-3 pt-2">
-                <button type="submit" disabled={submitting || overCapacity}
+                <button type="submit" disabled={submitting || overCapacity || slotAvailable === false}
                   className="flex-1 bg-green-600 text-white py-3 rounded-xl hover:bg-green-700 font-medium disabled:bg-gray-400 disabled:cursor-not-allowed">
                   {submitting ? 'Saving...' : editingBooking ? 'Save Changes' : 'Submit Request'}
                 </button>

@@ -300,6 +300,13 @@ public class BookingService {
         return saved;
     }
 
+    public boolean isResourceAvailable(String resourceId, LocalDateTime startTime, LocalDateTime endTime) {
+        Resource resource = resourceRepository.findById(resourceId).orElse(null);
+        if (resource == null) return false;
+        List<Booking> conflicts = bookingRepository.findConflictingBookings(resource, startTime, endTime);
+        return conflicts.isEmpty();
+    }
+
     public Integer getRemainingCapacity(String resourceId, LocalDateTime startTime, LocalDateTime endTime) {
         Resource resource = resourceRepository.findById(resourceId).orElse(null);
         if (resource == null || resource.getCapacity() == null || !"Lab".equalsIgnoreCase(resource.getType())) {
