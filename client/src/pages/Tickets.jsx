@@ -17,6 +17,7 @@ export default function Tickets() {
   const { user } = useAuth()
   const [tickets, setTickets] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [selectedTicket, setSelectedTicket] = useState(null)
   const [isEditing, setIsEditing] = useState(false)
@@ -42,20 +43,27 @@ export default function Tickets() {
   }
 
   useEffect(() => {
-    fetchTickets()
-    fetchLocations()
-    fetchTechnicians()
-  }, [])
+    if (user) {
+      fetchTickets()
+      fetchLocations()
+      fetchTechnicians()
+    }
+  }, [user])
 
   const fetchTickets = async () => {
     try {
+      setError('')
       const endpoint = user?.role === 'ADMIN' || user?.role === 'TECHNICIAN'
         ? '/api/tickets'
         : '/api/tickets/my'
+      console.log(`Fetching tickets from: ${endpoint} for role: ${user?.role}`)
       const res = await api.get(endpoint)
       setTickets(res.data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)))
     } catch (err) {
-      console.error(err)
+      console.error('Error fetching tickets:', err)
+      const message = err.response?.data?.message || err.message || 'Unknown error'
+      const status = err.response?.status
+      setError(`Failed to load tickets: ${status ? `[${status}] ` : ''}${message}`)
     } finally {
       setLoading(false)
     }
@@ -288,6 +296,13 @@ export default function Tickets() {
     <div className="min-h-screen bg-gray-50">
       <Navbar />
       <div className="max-w-5xl mx-auto px-6 py-8">
+        {error && (
+          <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-red-800 shadow-sm">
+            <p className="text-sm font-semibold">Error</p>
+            <p className="mt-1 text-sm">{error}</p>
+          </div>
+        )}
+
         <div className="flex justify-between items-center mb-6">
           <div>
             <h1 className="text-2xl font-bold text-gray-800">Incident Tickets</h1>

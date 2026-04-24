@@ -50,10 +50,6 @@ public class Ticket {
     private String resolutionNotes;
 
     private String rejectionReason;
-    
-    @Builder.Default
-    @Column(nullable = false)
-    private boolean hiddenByAdmin = false;
 
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "ticket_attachments", joinColumns = @JoinColumn(name = "ticket_id"))
