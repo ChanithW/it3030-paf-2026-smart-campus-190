@@ -298,29 +298,33 @@ export default function Bookings() {
         </div>
       )}
       <Navbar />
-      <div className="max-w-5xl mx-auto px-6 py-8">
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-800">Bookings</h1>
-            <p className="text-gray-500 text-sm mt-1">
-              {user?.role === 'ADMIN' ? 'Manage all booking requests' : 'Your booking requests'}
-            </p>
-          </div>
-          <div className="flex gap-3">
-            {user?.role === 'ADMIN' && (
-              <button
-                onClick={handleGenerateReport}
-                disabled={reportLoading}
-                className="bg-blue-600 text-white px-5 py-2.5 rounded-xl hover:bg-blue-700 text-sm font-medium shadow-sm disabled:opacity-60 disabled:cursor-not-allowed">
-                {reportLoading ? 'Generating...' : 'Generate Report'}
+      <div className="bg-gradient-to-b from-gray-50 to-white">
+        <div className="max-w-5xl mx-auto px-6 py-8">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-800">Bookings</h1>
+              <p className="text-gray-500 text-sm mt-1">
+                {user?.role === 'ADMIN' ? 'Manage all booking requests' : 'Your booking requests'}
+              </p>
+            </div>
+            <div className="flex gap-3">
+              {user?.role === 'ADMIN' && (
+                <button
+                  onClick={handleGenerateReport}
+                  disabled={reportLoading}
+                  className="bg-blue-600 text-white px-5 py-2.5 rounded-xl hover:bg-blue-700 text-sm font-medium shadow-sm disabled:opacity-60 disabled:cursor-not-allowed">
+                  {reportLoading ? 'Generating...' : 'Generate Report'}
+                </button>
+              )}
+              <button onClick={() => setShowForm(true)}
+                className="bg-green-600 text-white px-5 py-2.5 rounded-xl hover:bg-green-700 text-sm font-medium shadow-sm">
+                + New Booking
               </button>
-            )}
-            <button onClick={() => setShowForm(true)}
-              className="bg-green-600 text-white px-5 py-2.5 rounded-xl hover:bg-green-700 text-sm font-medium shadow-sm">
-              + New Booking
-            </button>
+            </div>
           </div>
         </div>
+      </div>
+      <div className="max-w-5xl mx-auto px-6 py-8">
 
         {/* Filter */}
         <div className="mb-6 space-y-3">
@@ -330,7 +334,7 @@ export default function Bookings() {
               const label = s ? statusConfig[s]?.label : 'All'
               return (
                 <button key={s} onClick={() => setFilterStatus(s)}
-                  className={`px-4 py-2 rounded-xl text-sm font-medium transition ${
+                  className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-150 ease-in-out ${
                     filterStatus === s
                       ? 'bg-gray-800 text-white'
                       : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
@@ -383,11 +387,30 @@ export default function Bookings() {
         </div>
 
         {loading ? (
-          <div className="text-center py-20 text-gray-400">Loading bookings...</div>
+          <div className="space-y-4">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100 border-l-4 border-l-gray-200 animate-pulse">
+                <div className="flex justify-between items-start">
+                  <div className="flex-1 space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div className="h-5 w-40 bg-gray-200 rounded-lg" />
+                      <div className="h-5 w-20 bg-gray-100 rounded-full" />
+                    </div>
+                    <div className="h-4 w-56 bg-gray-100 rounded-lg" />
+                    <div className="flex gap-6">
+                      <div className="h-4 w-44 bg-gray-100 rounded-lg" />
+                      <div className="h-4 w-36 bg-gray-100 rounded-lg" />
+                    </div>
+                  </div>
+                  <div className="h-9 w-24 bg-gray-100 rounded-xl ml-4" />
+                </div>
+              </div>
+            ))}
+          </div>
         ) : (
           <div className="space-y-4">
             {filtered.map(b => (
-              <div key={b.id} className={`bg-white rounded-2xl shadow-sm p-6 border border-gray-100 border-l-4 ${statusConfig[b.status]?.border} hover:shadow-md transition`}>
+              <div key={b.id} className={`bg-white rounded-2xl shadow-sm p-6 border border-gray-100 border-l-4 ${statusConfig[b.status]?.border} hover:shadow-md transition-all duration-200 ease-in-out`}>
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
@@ -652,7 +675,7 @@ export default function Bookings() {
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {reportUsers.map(u => (
-                    <tr key={u.id} className="hover:bg-gray-50 transition">
+                    <tr key={u.id} className="hover:bg-gray-50 transition-colors duration-150 ease-in-out">
                       <td className="py-3">
                         <div className="flex items-center gap-2">
                           {u.profilePicture
