@@ -30,6 +30,7 @@ export default function Bookings() {
   const [showReport, setShowReport] = useState(false)
   const [reportUsers, setReportUsers] = useState([])
   const [reportLoading, setReportLoading] = useState(false)
+  const [confirmModal, setConfirmModal] = useState(null)
   const [form, setForm] = useState({
     resourceId: '', startTime: '', endTime: '', purpose: '', expectedAttendees: ''
   })
@@ -190,24 +191,38 @@ export default function Bookings() {
     }
   }
 
-  const handleCancel = async (id) => {
-    if (!confirm('Cancel this booking?')) return
-    try {
-      await api.patch(`/api/bookings/${id}/cancel`)
-      fetchBookings()
-    } catch (err) {
-      console.error(err)
-    }
+  const handleCancel = (id) => {
+    setConfirmModal({
+      title: 'Cancel Booking',
+      message: 'Are you sure you want to cancel this booking? This cannot be undone.',
+      confirmLabel: 'Yes, Cancel Booking',
+      confirmClass: 'bg-red-500 hover:bg-red-600 text-white',
+      onConfirm: async () => {
+        try {
+          await api.patch(`/api/bookings/${id}/cancel`)
+          fetchBookings()
+        } catch (err) {
+          console.error(err)
+        }
+      }
+    })
   }
 
-  const handleDelete = async (id) => {
-    if (!confirm('Delete this booking from the view?')) return
-    try {
-      await api.delete(`/api/bookings/${id}`)
-      fetchBookings()
-    } catch (err) {
-      console.error(err)
-    }
+  const handleDelete = (id) => {
+    setConfirmModal({
+      title: 'Delete Booking',
+      message: 'This will permanently remove the booking from the list.',
+      confirmLabel: 'Delete',
+      confirmClass: 'bg-red-600 hover:bg-red-700 text-white',
+      onConfirm: async () => {
+        try {
+          await api.delete(`/api/bookings/${id}`)
+          fetchBookings()
+        } catch (err) {
+          console.error(err)
+        }
+      }
+    })
   }
 
   const handleGenerateReport = async () => {
@@ -717,6 +732,31 @@ export default function Bookings() {
               {reportUsers.length === 0 && (
                 <p className="text-center text-gray-400 py-12">No users found.</p>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal */}
+      {confirmModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-8 w-full max-w-sm shadow-2xl">
+            <h2 className="text-lg font-bold text-gray-800 mb-2">{confirmModal.title}</h2>
+            <p className="text-sm text-gray-500 mb-6">{confirmModal.message}</p>
+            <div className="flex gap-3">
+              <button
+                onClick={async () => {
+                  await confirmModal.onConfirm()
+                  setConfirmModal(null)
+                }}
+                className={`flex-1 py-2.5 rounded-xl font-medium text-sm transition-all duration-150 ${confirmModal.confirmClass}`}>
+                {confirmModal.confirmLabel}
+              </button>
+              <button
+                onClick={() => setConfirmModal(null)}
+                className="flex-1 py-2.5 rounded-xl font-medium text-sm bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all duration-150">
+                Keep Booking
+              </button>
             </div>
           </div>
         </div>
