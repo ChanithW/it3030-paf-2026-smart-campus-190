@@ -325,16 +325,20 @@ export default function Bookings() {
         {/* Filter */}
         <div className="mb-6 space-y-3">
           <div className="flex gap-2 flex-wrap">
-            {['', 'PENDING', 'APPROVED', 'REJECTED', 'CANCELLED'].map(s => (
-              <button key={s} onClick={() => setFilterStatus(s)}
-                className={`px-4 py-2 rounded-xl text-sm font-medium transition ${
-                  filterStatus === s
-                    ? 'bg-gray-800 text-white'
-                    : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
-                }`}>
-                {s || 'All'}
-              </button>
-            ))}
+            {['', 'PENDING', 'APPROVED', 'REJECTED', 'CANCELLED'].map(s => {
+              const count = s ? bookings.filter(b => b.status === s).length : bookings.length
+              const label = s ? statusConfig[s]?.label : 'All'
+              return (
+                <button key={s} onClick={() => setFilterStatus(s)}
+                  className={`px-4 py-2 rounded-xl text-sm font-medium transition ${
+                    filterStatus === s
+                      ? 'bg-gray-800 text-white'
+                      : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+                  }`}>
+                  {label} <span className={`ml-1 text-xs font-semibold ${filterStatus === s ? 'opacity-75' : 'text-gray-400'}`}>({count})</span>
+                </button>
+              )
+            })}
           </div>
           {user?.role === 'ADMIN' && (
             <div className="space-y-2">
