@@ -86,8 +86,12 @@ export default function Bookings() {
 
   const nowLocal = () => {
     const now = new Date()
-    now.setSeconds(0, 0)
-    return now.toISOString().slice(0, 16)
+    const year = now.getFullYear()
+    const month = String(now.getMonth() + 1).padStart(2, '0')
+    const day = String(now.getDate()).padStart(2, '0')
+    const hours = String(now.getHours()).padStart(2, '0')
+    const minutes = String(now.getMinutes()).padStart(2, '0')
+    return `${year}-${month}-${day}T${hours}:${minutes}`
   }
 
   const handleSubmit = async (e) => {
@@ -387,6 +391,7 @@ export default function Bookings() {
                 onChange={e => setForm({ ...form, resourceId: e.target.value })}
                 className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-100">
                 <option value="">Select Resource</option>
+
                 {visibleResources.map(r => (
                   <option key={r.id} value={r.id}>{r.name} — {r.location}</option>
                 ))}
@@ -396,6 +401,25 @@ export default function Bookings() {
                   No active resources found for this type.
                 </p>
               )}
+              {selectedResource?.availabilityWindows && (() => {
+                const parts = selectedResource.availabilityWindows.split('|')
+                const days = parts[0]?.trim() || ''
+                const times = parts[1]?.trim() || ''
+                const formatT = t => {
+                  if (!t) return t
+                  const [h, m] = t.trim().split(':').map(Number)
+                  const period = h >= 12 ? 'PM' : 'AM'
+                  const display = h % 12 === 0 ? 12 : h % 12
+                  return `${display}:${String(m).padStart(2, '0')} ${period}`
+                }
+                const [start, end] = times.split('to').map(formatT)
+                return (
+                  <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-2 text-green-700 text-xs flex items-center gap-2">
+                    <span className="text-green-500">🕐</span>
+                    <span><span className="font-semibold">Available:</span> {days} | {start} – {end}</span>
+                  </div>
+                )
+              })()}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs text-gray-500 font-medium">Start Time</label>
