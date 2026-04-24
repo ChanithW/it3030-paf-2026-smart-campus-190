@@ -5,6 +5,7 @@ import api from '../api/axios'
 import { QRCodeSVG as QRCode } from 'qrcode.react'
 import { getAllResourceTypes } from '../constants/resourceTypes'
 import { getAllResourceLocations } from '../constants/resourceLocations'
+import campusBg from '../assets/campus.png'
 
 export default function Bookings() {
   const { user } = useAuth()
@@ -188,7 +189,11 @@ export default function Bookings() {
   )
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen relative">
+      <div className="fixed inset-0 -z-10">
+        <img src={campusBg} alt="" className="w-full h-full object-cover" />
+        <div className="absolute inset-0 bg-white bg-opacity-85"></div>
+      </div>
       {success && (
         <div className="fixed right-4 top-4 z-[70] w-full max-w-sm">
           <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-800 shadow-lg">
