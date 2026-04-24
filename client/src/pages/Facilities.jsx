@@ -226,6 +226,10 @@ export default function Facilities() {
       showToast('Resource type name is required.', 'error')
       return
     }
+    if (!RESOURCE_NAME_PATTERN.test(newValue)) {
+      showToast('Resource type can only contain letters, numbers, and spaces.', 'error')
+      return
+    }
 
     const duplicate = resourceTypes.some(
       (type) => type.toLowerCase() === newValue.toLowerCase() && type.toLowerCase() !== oldValue.toLowerCase()
@@ -321,6 +325,10 @@ export default function Facilities() {
     if (!oldValue) return
     if (!newValue) {
       showToast('Resource location name is required.', 'error')
+      return
+    }
+    if (!RESOURCE_NAME_PATTERN.test(newValue)) {
+      showToast('Resource location can only contain letters, numbers, and spaces.', 'error')
       return
     }
 
@@ -451,6 +459,11 @@ export default function Facilities() {
       return
     }
 
+    if (selectedType === 'OTHER' && !RESOURCE_NAME_PATTERN.test(otherType.trim())) {
+      setFormError('Resource type can only contain letters, numbers, and spaces')
+      return
+    }
+
     const shouldRequireCapacity =
       isBuiltInResourceType && (!editingResource || editingResource.capacity !== null)
 
@@ -477,6 +490,11 @@ export default function Facilities() {
 
     if (selectedLocation === 'OTHER' && !otherLocation.trim()) {
       setFormError('Please enter a custom location')
+      return
+    }
+
+    if (selectedLocation === 'OTHER' && !RESOURCE_NAME_PATTERN.test(otherLocation.trim())) {
+      setFormError('Resource location can only contain letters, numbers, and spaces')
       return
     }
 
@@ -718,7 +736,9 @@ export default function Facilities() {
                         <div className="space-y-3">
                           <input
                             value={typeEditor.value}
-                            onChange={(e) => setTypeEditor({ ...typeEditor, value: e.target.value })}
+                            onChange={(e) => setTypeEditor({ ...typeEditor, value: e.target.value.replace(/[^A-Za-z0-9 ]/g, '') })}
+                            pattern="[A-Za-z0-9 ]+"
+                            title="Only letters, numbers, and spaces are allowed"
                             className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100"
                           />
                           <div className="flex gap-2">
@@ -809,7 +829,9 @@ export default function Facilities() {
                         <div className="space-y-3">
                           <input
                             value={locationEditor.value}
-                            onChange={(e) => setLocationEditor({ ...locationEditor, value: e.target.value })}
+                            onChange={(e) => setLocationEditor({ ...locationEditor, value: e.target.value.replace(/[^A-Za-z0-9 ]/g, '') })}
+                            pattern="[A-Za-z0-9 ]+"
+                            title="Only letters, numbers, and spaces are allowed"
                             className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100"
                           />
                           <div className="flex gap-2">
@@ -981,10 +1003,12 @@ export default function Facilities() {
                     placeholder="Type name"
                     value={otherType}
                     onChange={e => {
-                      const value = e.target.value
+                      const value = e.target.value.replace(/[^A-Za-z0-9 ]/g, '')
                       setOtherType(value)
                       setForm({ ...form, type: buildCustomEquipmentType(value) })
                     }}
+                    pattern="[A-Za-z0-9 ]+"
+                    title="Only letters, numbers, and spaces are allowed"
                     className="w-full border-none p-0 focus:outline-none"
                   />
                 </div>
@@ -1033,10 +1057,12 @@ export default function Facilities() {
               {selectedLocation === 'OTHER' && (
                 <input required placeholder="Enter location (e.g. Block A 7th Floor)" value={otherLocation}
                   onChange={e => {
-                    const value = e.target.value
+                    const value = e.target.value.replace(/[^A-Za-z0-9 ]/g, '')
                     setOtherLocation(value)
                     setForm({ ...form, location: value.trim() })
                   }}
+                  pattern="[A-Za-z0-9 ]+"
+                  title="Only letters, numbers, and spaces are allowed"
                   className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-100" />
               )}
               <div className="space-y-3">

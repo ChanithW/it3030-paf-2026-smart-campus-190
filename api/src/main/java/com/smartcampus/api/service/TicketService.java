@@ -214,6 +214,7 @@ public class TicketService {
         ticket.setCategory(request.getCategory());
         ticket.setDescription(request.getDescription());
         ticket.setLocation(request.getLocation());
+        ticket.setContactDetails(request.getContactDetails());
 
         Ticket saved = ticketRepository.save(ticket);
 
