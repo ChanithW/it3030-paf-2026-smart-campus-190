@@ -258,10 +258,10 @@ export default function Bookings() {
   }
 
   const statusConfig = {
-    PENDING: { color: 'bg-yellow-100 text-yellow-700', label: 'Pending' },
-    APPROVED: { color: 'bg-green-100 text-green-700', label: 'Approved' },
-    REJECTED: { color: 'bg-red-100 text-red-700', label: 'Rejected' },
-    CANCELLED: { color: 'bg-gray-100 text-gray-500', label: 'Cancelled' }
+    PENDING: { color: 'bg-yellow-100 text-yellow-700', label: 'Pending', border: 'border-l-yellow-400' },
+    APPROVED: { color: 'bg-green-100 text-green-700', label: 'Approved', border: 'border-l-green-500' },
+    REJECTED: { color: 'bg-red-100 text-red-700', label: 'Rejected', border: 'border-l-red-500' },
+    CANCELLED: { color: 'bg-gray-100 text-gray-500', label: 'Cancelled', border: 'border-l-gray-300' }
   }
 
   const filtered = bookings.filter(b => {
@@ -383,7 +383,7 @@ export default function Bookings() {
         ) : (
           <div className="space-y-4">
             {filtered.map(b => (
-              <div key={b.id} className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition">
+              <div key={b.id} className={`bg-white rounded-2xl shadow-sm p-6 border border-gray-100 border-l-4 ${statusConfig[b.status]?.border} hover:shadow-md transition`}>
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
