@@ -93,6 +93,7 @@ export default function Bookings() {
   const handleEdit = (booking) => {
     setEditingBooking(booking)
     setSelectedResourceType(booking.resource?.type || '')
+    setRemainingSeats(null)
     setForm({
       resourceId: booking.resource?.id || '',
       startTime: toDatetimeLocal(booking.startTime),
