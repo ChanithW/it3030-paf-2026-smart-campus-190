@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import Navbar from '../components/Navbar'
 import api from '../api/axios'
+import campusBg from '../assets/campus.png'
 
 const TICKET_CATEGORIES = [
   'Electrical',
@@ -285,7 +286,11 @@ export default function Tickets() {
   })
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen relative">
+      <div className="fixed inset-0 -z-10">
+        <img src={campusBg} alt="" className="w-full h-full object-cover" />
+        <div className="absolute inset-0 bg-white bg-opacity-85"></div>
+      </div>
       <Navbar />
       <div className="max-w-5xl mx-auto px-6 py-8">
         <div className="flex justify-between items-center mb-6">
