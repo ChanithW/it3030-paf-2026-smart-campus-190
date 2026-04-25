@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import { useNavigate } from 'react-router-dom'
 import Navbar from '../components/Navbar'
 import api from '../api/axios'
+import campusBg from '../assets/campus.png'
 
 export default function UserManagement() {
   const { user } = useAuth()
@@ -83,7 +84,11 @@ export default function UserManagement() {
   const filtered = users.filter(u => !filterRole || u.role === filterRole)
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen relative">
+      <div className="fixed inset-0 -z-10">
+        <img src={campusBg} alt="" className="w-full h-full object-cover" />
+        <div className="absolute inset-0 bg-white bg-opacity-85"></div>
+      </div>
       <Navbar />
       <div className="max-w-6xl mx-auto px-6 py-8">
         <div className="flex justify-between items-center mb-6">

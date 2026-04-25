@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import Navbar from '../components/Navbar'
 import api from '../api/axios'
+import campusBg from '../assets/campus.png'
 
 const TICKET_CATEGORIES = [
   'Electrical',
@@ -17,13 +18,15 @@ export default function Tickets() {
   const { user } = useAuth()
   const [tickets, setTickets] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [selectedTicket, setSelectedTicket] = useState(null)
   const [isEditing, setIsEditing] = useState(false)
-  const [editForm, setEditForm] = useState({ category: '', description: '', location: '' })
+  const [editForm, setEditForm] = useState({ category: '', description: '', location: '', contactDetails: '' })
   const [comments, setComments] = useState([])
   const [newComment, setNewComment] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
   const [uploading, setUploading] = useState(false)
   const [selectedFiles, setSelectedFiles] = useState([])
   const [previewUrls, setPreviewUrls] = useState([])
@@ -36,25 +39,32 @@ export default function Tickets() {
 
   const validateContact = (contact) => {
     const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/
-    const phoneRegex = /^\+?[0-9]{10}$/
+    const phoneRegex = /^0[0-9]{9}$/
     return emailRegex.test(contact) || phoneRegex.test(contact)
   }
 
-  useEffect(() => { 
-    fetchTickets() 
-    fetchLocations()
-    fetchTechnicians()
-  }, [])
+  useEffect(() => {
+    if (user) {
+      fetchTickets()
+      fetchLocations()
+      fetchTechnicians()
+    }
+  }, [user])
 
   const fetchTickets = async () => {
     try {
+      setError('')
       const endpoint = user?.role === 'ADMIN' || user?.role === 'TECHNICIAN'
         ? '/api/tickets'
         : '/api/tickets/my'
+      console.log(`Fetching tickets from: ${endpoint} for role: ${user?.role}`)
       const res = await api.get(endpoint)
       setTickets(res.data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)))
     } catch (err) {
-      console.error(err)
+      console.error('Error fetching tickets:', err)
+      const message = err.response?.data?.message || err.message || 'Unknown error'
+      const status = err.response?.status
+      setError(`Failed to load tickets: ${status ? `[${status}] ` : ''}${message}`)
     } finally {
       setLoading(false)
     }
@@ -93,8 +103,28 @@ export default function Tickets() {
 
   const handleFileChange = (e) => {
     const files = Array.from(e.target.files).slice(0, 3)
-    setSelectedFiles(files)
-    const urls = files.map(f => URL.createObjectURL(f))
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+    const maxSize = 5 * 1024 * 1024 // 5MB
+
+    const validFiles = []
+    const errors = []
+
+    files.forEach(file => {
+      if (!allowedTypes.includes(file.type)) {
+        errors.push(`${file.name}: Invalid file type. Only PNG, JPG, GIF, and WEBP are allowed.`)
+      } else if (file.size > maxSize) {
+        errors.push(`${file.name}: File is too large. Max size is 5MB.`)
+      } else {
+        validFiles.push(file)
+      }
+    })
+
+    if (errors.length > 0) {
+      alert(errors.join('\n'))
+    }
+
+    setSelectedFiles(validFiles)
+    const urls = validFiles.map(f => URL.createObjectURL(f))
     setPreviewUrls(urls)
   }
 
@@ -109,7 +139,7 @@ export default function Tickets() {
     e.preventDefault()
 
     if (!validateContact(form.contactDetails)) {
-      alert('Please provide a valid email address or 10-digit phone number')
+      alert('Please provide a valid email address or 10-digit phone number starting with 0')
       return
     }
 
@@ -139,6 +169,21 @@ export default function Tickets() {
     }
   }
 
+  const handleAssign = async () => {
+    try {
+      const res = await api.patch(`/api/tickets/${selectedTicket.id}/status`, {
+        status: selectedTicket.status,
+        assignedToId: assigneeId || ''
+      })
+      setSelectedTicket(res.data)
+      fetchTickets()
+      alert('Technician assignment updated successfully')
+    } catch (err) {
+      console.error(err)
+      alert(err.response?.data?.message || 'Failed to update technician assignment')
+    }
+  }
+
   const handleStatusUpdate = async (id, status) => {
     try {
       let resolutionNotes = ''
@@ -156,29 +201,39 @@ export default function Tickets() {
         reason = input || 'Rejected by admin'
       }
 
-      await api.patch(`/api/tickets/${id}/status`, {
+      const statusRes = await api.patch(`/api/tickets/${id}/status`, {
         status,
         resolutionNotes,
         reason,
-        assignedToId: assigneeId
+        assignedToId: assigneeId || null
       })
 
       await fetchTickets()
 
-      const refreshed = await api.get(`/api/tickets/${id}`)
-      setSelectedTicket(refreshed.data)
+      if (statusRes.data) {
+        setSelectedTicket(statusRes.data)
+      }
 
     } catch (err) {
-      console.error(err)
+      console.error('Status update failed:', err)
+      const errorMessage = err.response?.data?.message || 'Failed to update ticket status'
+      alert(errorMessage)
+      await fetchTickets()
+      if (selectedTicket) {
+        setSelectedTicket(null)
+      }
     }
   }
 
   const handleUpdate = async () => {
+    if (!validateContact(editForm.contactDetails)) {
+      alert('Please provide a valid email address or 10-digit phone number starting with 0')
+      return
+    }
     try {
       await api.put(`/api/tickets/${selectedTicket.id}`, {
         ...editForm,
-        priority: selectedTicket.priority,
-        contactDetails: selectedTicket.contactDetails
+        priority: selectedTicket.priority
       })
       const refreshed = await api.get(`/api/tickets/${selectedTicket.id}`)
       setSelectedTicket(refreshed.data)
@@ -194,7 +249,8 @@ export default function Tickets() {
     setEditForm({
       category: selectedTicket.category,
       description: selectedTicket.description,
-      location: selectedTicket.location || ''
+      location: selectedTicket.location || '',
+      contactDetails: selectedTicket.contactDetails || ''
     })
     setIsEditing(true)
   }
@@ -220,18 +276,72 @@ export default function Tickets() {
     }
   }
 
+  const handleDeleteTicket = async (id, isWithdrawal = false) => {
+    const message = isWithdrawal 
+      ? 'Are you sure you want to withdraw this ticket?' 
+      : 'Are you sure you want to remove this ticket from view?'
+    if (!confirm(message)) return
+    
+    try {
+      await api.delete(`/api/tickets/${id}`)
+      setSelectedTicket(null)
+      setComments([])
+      fetchTickets()
+    } catch (err) {
+      if (err.response?.status === 404) {
+        setSelectedTicket(null)
+        setComments([])
+        fetchTickets()
+        return
+      }
+      console.error(err)
+      alert(err.response?.data?.message || 'Failed to delete ticket')
+    }
+  }
+
+  const downloadCSV = async () => {
+    try {
+      const res = await api.get('/api/tickets?includeHidden=true')
+      const allTickets = res.data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      
+      const headers = ['ID', 'User', 'Category', 'Description', 'Priority', 'Status', 'Location', 'Is Hidden', 'Created At']
+      const rows = allTickets.map(t => [
+        t.id,
+        t.user?.name || t.user?.email,
+        t.category,
+        t.description.replace(/,/g, ';'), 
+        t.priority,
+        t.status,
+        t.location || 'N/A',
+        t.hiddenByAdmin ? 'YES' : 'NO',
+        new Date(t.createdAt).toLocaleString()
+      ])
+
+      const csvContent = [
+        headers.join(','),
+        ...rows.map(row => row.join(','))
+      ].join('\n')
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.setAttribute('href', url)
+      link.setAttribute('download', `tickets_full_export_${new Date().toISOString().split('T')[0]}.csv`)
+      link.style.visibility = 'hidden'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+    } catch (err) {
+      console.error('Error exporting CSV:', err)
+      alert('Failed to export CSV.')
+    }
+  }
+
   const openTicket = async (ticket) => {
     setIsEditing(false)
     setAssigneeId(ticket.assignedTo?.id || '')
-    try {
-      const res = await api.get(`/api/tickets/${ticket.id}`)
-      setSelectedTicket(res.data)
-      setAssigneeId(res.data.assignedTo?.id || '')
-      fetchComments(ticket.id)
-    } catch (err) {
-      setSelectedTicket(ticket)
-      fetchComments(ticket.id)
-    }
+    setSelectedTicket(ticket)
+    fetchComments(ticket.id)
   }
 
   const priorityConfig = {
@@ -249,12 +359,31 @@ export default function Tickets() {
     REJECTED: { color: 'bg-red-100 text-red-700', label: 'Rejected' }
   }
 
-  const filtered = tickets.filter(t => !filterStatus || t.status === filterStatus)
+  const filtered = tickets.filter(t => {
+    const matchesStatus = !filterStatus || t.status === filterStatus
+    const query = searchQuery.toLowerCase()
+    const matchesSearch = !query ||
+      t.category.toLowerCase().includes(query) ||
+      t.description.toLowerCase().includes(query) ||
+      t.location?.toLowerCase().includes(query)
+    return matchesStatus && matchesSearch
+  })
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen relative">
+      <div className="fixed inset-0 -z-10">
+        <img src={campusBg} alt="" className="w-full h-full object-cover" />
+        <div className="absolute inset-0 bg-white bg-opacity-85"></div>
+      </div>
       <Navbar />
       <div className="max-w-5xl mx-auto px-6 py-8">
+        {error && (
+          <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-red-800 shadow-sm">
+            <p className="text-sm font-semibold">Error</p>
+            <p className="mt-1 text-sm">{error}</p>
+          </div>
+        )}
+
         <div className="flex justify-between items-center mb-6">
           <div>
             <h1 className="text-2xl font-bold text-gray-800">Incident Tickets</h1>
@@ -264,18 +393,34 @@ export default function Tickets() {
                   'Your incident reports'}
             </p>
           </div>
-          <button onClick={() => setShowForm(true)}
-            className="bg-orange-500 text-white px-5 py-2.5 rounded-xl hover:bg-orange-600 text-sm font-medium shadow-sm">
-            + New Ticket
-          </button>
+          <div className="flex gap-3">
+            {(user?.role === 'ADMIN' || user?.role === 'TECHNICIAN') && (
+              <button onClick={downloadCSV}
+                className="bg-white text-gray-700 border border-gray-200 px-5 py-2.5 rounded-xl hover:bg-gray-50 text-sm font-medium shadow-sm flex items-center gap-2">
+                📥 Export CSV
+              </button>
+            )}
+            <button onClick={() => setShowForm(true)}
+              className="bg-orange-500 text-white px-5 py-2.5 rounded-xl hover:bg-orange-600 text-sm font-medium shadow-sm">
+              + New Ticket
+            </button>
+          </div>
         </div>
+
+        <input
+          type="text"
+          placeholder="Search by keyword..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-1/2 mb-4 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-100"
+        />
 
         <div className="flex gap-2 mb-6 flex-wrap">
           {['', 'OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED', 'REJECTED'].map(s => (
             <button key={s} onClick={() => setFilterStatus(s)}
               className={`px-4 py-2 rounded-xl text-sm font-medium transition ${filterStatus === s
-                  ? 'bg-gray-800 text-white'
-                  : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+                ? 'bg-gray-800 text-white'
+                : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
                 }`}>
               {s ? statusConfig[s]?.label : 'All'}
             </button>
@@ -302,7 +447,7 @@ export default function Tickets() {
                     </div>
                     <p className="text-sm text-gray-600 mb-2">{t.description}</p>
                     <div className="flex items-center gap-4">
-                      {t.location && <p className="text-sm text-gray-400">📍 {t.location}</p>}
+                      {t.location && <p className="text-sm text-gray-400">📌 {t.location}</p>}
                       {t.attachments?.length > 0 && (
                         <p className="text-sm text-gray-400">📎 {t.attachments.length} attachment{t.attachments.length > 1 ? 's' : ''}</p>
                       )}
@@ -359,9 +504,20 @@ export default function Tickets() {
                   ))}
                 </select>
               </div>
-              <input required placeholder="Contact Details (Email or 10-digit Phone)" value={form.contactDetails}
-                onChange={e => setForm({ ...form, contactDetails: e.target.value })}
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-orange-100" />
+              <div className="space-y-1">
+                <input required placeholder="Contact Details (Email or 10-digit Phone)" value={form.contactDetails}
+                  onChange={e => setForm({ ...form, contactDetails: e.target.value })}
+                  className={`w-full border rounded-xl px-4 py-3 focus:outline-none focus:ring-2 ${
+                    form.contactDetails && !validateContact(form.contactDetails)
+                      ? 'border-red-300 focus:ring-red-100'
+                      : 'border-gray-200 focus:ring-orange-100'
+                  }`} />
+                {form.contactDetails && !validateContact(form.contactDetails) && (
+                  <p className="text-[10px] text-red-500 ml-1">
+                    Must be a valid email or 10-digit phone starting with 0
+                  </p>
+                )}
+              </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Attachments (up to 3 images)
@@ -470,13 +626,33 @@ export default function Tickets() {
               </div>
             </div>
 
-            <div className="flex gap-2 mb-4">
-              <span className={`text-xs px-3 py-1 rounded-full font-medium ${statusConfig[selectedTicket.status]?.color}`}>
-                {statusConfig[selectedTicket.status]?.label}
-              </span>
-              <span className={`text-xs px-3 py-1 rounded-full font-medium ${priorityConfig[selectedTicket.priority]?.color}`}>
-                {priorityConfig[selectedTicket.priority]?.label}
-              </span>
+            <div className="flex gap-2 mb-4 items-center justify-between">
+              <div className="flex gap-2">
+                <span className={`text-xs px-3 py-1 rounded-full font-medium ${statusConfig[selectedTicket.status]?.color}`}>
+                  {statusConfig[selectedTicket.status]?.label}
+                </span>
+                <span className={`text-xs px-3 py-1 rounded-full font-medium ${priorityConfig[selectedTicket.priority]?.color}`}>
+                  {priorityConfig[selectedTicket.priority]?.label}
+                </span>
+              </div>
+              <div className="flex gap-2">
+                {user?.role === 'ADMIN' && (selectedTicket.status === 'CLOSED' || selectedTicket.status === 'REJECTED') && (
+                  <button
+                    onClick={() => handleDeleteTicket(selectedTicket.id)}
+                    className="text-xs px-3 py-1 rounded-lg font-medium bg-red-100 text-red-700 hover:bg-red-200 transition"
+                  >
+                    Delete Ticket
+                  </button>
+                )}
+                {selectedTicket.user?.email === user?.email && selectedTicket.status === 'OPEN' && (
+                  <button
+                    onClick={() => handleDeleteTicket(selectedTicket.id, true)}
+                    className="text-xs px-3 py-1 rounded-lg font-medium bg-red-100 text-red-700 hover:bg-red-200 transition"
+                  >
+                    Withdraw Ticket
+                  </button>
+                )}
+              </div>
             </div>
 
             {isEditing ? (
@@ -494,7 +670,31 @@ export default function Tickets() {
               </div>
             ) : (
               selectedTicket.location && (
-                <p className="text-sm text-gray-500 mb-3">📍 {selectedTicket.location}</p>
+                <p className="text-sm text-gray-500 mb-3">📌 {selectedTicket.location}</p>
+              )
+            )}
+
+            {isEditing ? (
+              <div className="mb-4 space-y-1">
+                <input
+                  className={`w-full text-sm border-b focus:outline-none py-1 bg-transparent ${
+                    editForm.contactDetails && !validateContact(editForm.contactDetails)
+                      ? 'border-red-300 focus:border-red-500 text-red-600'
+                      : 'border-gray-100 focus:border-orange-500 text-gray-500'
+                  }`}
+                  placeholder="Contact Details"
+                  value={editForm.contactDetails}
+                  onChange={e => setEditForm({ ...editForm, contactDetails: e.target.value })}
+                />
+                {editForm.contactDetails && !validateContact(editForm.contactDetails) && (
+                  <p className="text-[10px] text-red-500">
+                    Must be a valid email or 10-digit phone starting with 0
+                  </p>
+                )}
+              </div>
+            ) : (
+              selectedTicket.contactDetails && (
+                <p className="text-sm text-gray-500 mb-3">📞 {selectedTicket.contactDetails}</p>
               )
             )}
 
@@ -530,20 +730,28 @@ export default function Tickets() {
               </div>
             )}
 
-            {(user?.role === 'ADMIN' || user?.role === 'TECHNICIAN') && (
+{(user?.role === 'ADMIN' || user?.role === 'TECHNICIAN') && (
               <div className="flex gap-2 mb-6 flex-wrap bg-gray-50 p-4 rounded-xl">
                 <div className="w-full mb-3">
                   <p className="text-xs text-gray-500 mb-2 font-medium">Assign To:</p>
-                  <select 
-                    value={assigneeId} 
-                    onChange={e => setAssigneeId(e.target.value)}
-                    className="w-full text-xs bg-white border border-gray-200 rounded-lg p-2 focus:outline-none focus:ring-1 focus:ring-orange-100"
-                  >
-                    <option value="">Unassigned</option>
-                    {technicians.map(tech => (
-                      <option key={tech.id} value={tech.id}>{tech.name}</option>
-                    ))}
-                  </select>
+                  <div className="flex gap-2">
+                    <select
+                      value={assigneeId}
+                      onChange={e => setAssigneeId(e.target.value)}
+                      className="flex-1 text-xs bg-white border border-gray-200 rounded-lg p-2 focus:outline-none focus:ring-1 focus:ring-orange-100"
+                    >
+                      <option value="">Unassigned</option>
+                      {technicians.map(tech => (
+                        <option key={tech.id} value={tech.id}>{tech.name}</option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={handleAssign}
+                      className="text-xs px-3 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition font-medium"
+                    >
+                      Assign
+                    </button>
+                  </div>
                 </div>
                 <p className="text-xs text-gray-500 w-full font-medium">Update Status:</p>
                 {['IN_PROGRESS', 'RESOLVED', 'CLOSED', 'REJECTED'].map(s => (

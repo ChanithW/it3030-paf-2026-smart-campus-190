@@ -30,3 +30,7 @@
 	transform-origin: top center;
 	animation: bell-ring 700ms ease-in-out;
 }
+
+body {
+  background-color: #f9fafb;
+}

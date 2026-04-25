@@ -1,10 +1,15 @@
 import { useNavigate } from 'react-router-dom'
+import campusBg from '../assets/campus.png'
 
 export default function TermsOfService() {
   const navigate = useNavigate()
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen relative">
+      <div className="fixed inset-0 -z-10">
+        <img src={campusBg} alt="" className="w-full h-full object-cover" />
+        <div className="absolute inset-0 bg-white bg-opacity-85"></div>
+      </div>
       <div className="max-w-3xl mx-auto px-6 py-12">
         <button onClick={() => navigate(-1)} className="text-blue-600 hover:text-blue-800 text-sm mb-8 flex items-center gap-2">
           ← Back

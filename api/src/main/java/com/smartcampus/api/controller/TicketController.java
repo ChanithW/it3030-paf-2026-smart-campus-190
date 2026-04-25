@@ -41,11 +41,12 @@ public class TicketController {
 
     @GetMapping
     public ResponseEntity<List<Ticket>> getAllTickets(
-            @RequestParam(required = false) TicketStatus status) {
+            @RequestParam(required = false) TicketStatus status,
+            @RequestParam(defaultValue = "false") boolean includeHidden) {
         if (status != null) {
             return ResponseEntity.ok(ticketService.getTicketsByStatus(status));
         }
-        return ResponseEntity.ok(ticketService.getAllTickets());
+        return ResponseEntity.ok(ticketService.getAllTickets(includeHidden));
     }
 
     @GetMapping("/{id}")
@@ -174,5 +175,14 @@ public class TicketController {
             @AuthenticationPrincipal OAuth2User principal) {
         User user = userService.getUserByEmail(principal.getAttribute("email"));
         return ResponseEntity.ok(ticketService.updateTicket(id, request, user));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteTicket(
+            @PathVariable String id,
+            @AuthenticationPrincipal OAuth2User principal) {
+        User user = userService.getUserByEmail(principal.getAttribute("email"));
+        ticketService.deleteTicket(id, user);
+        return ResponseEntity.noContent().build();
     }
 }

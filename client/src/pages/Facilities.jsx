@@ -16,6 +16,7 @@ import {
   updateResourceLocation,
   deleteResourceLocation
 } from '../constants/resourceLocations'
+import campusBg from '../assets/campus.png'
 
 const RESOURCE_NAME_PATTERN = /^[A-Za-z0-9 ]+$/
 const CUSTOM_EQUIPMENT_PREFIX = 'Equipment - '
@@ -716,7 +717,11 @@ export default function Facilities() {
   )
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen relative">
+      <div className="fixed inset-0 -z-10">
+          <img src={campusBg} alt="" className="w-full h-full object-cover" />
+          <div className="absolute inset-0 bg-white bg-opacity-85"></div>
+      </div>
       {toast.show && (
         <div className="fixed right-4 top-4 z-[70] w-full max-w-sm">
           <div

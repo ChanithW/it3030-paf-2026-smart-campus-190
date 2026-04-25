@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import Navbar from '../components/Navbar'
 import api from '../api/axios'
+import campusBg from '../assets/campus.png'
 
 export default function BookingVerification() {
   const { user } = useAuth()
@@ -36,7 +37,11 @@ export default function BookingVerification() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen relative">
+      <div className="fixed inset-0 -z-10">
+        <img src={campusBg} alt="" className="w-full h-full object-cover" />
+        <div className="absolute inset-0 bg-white bg-opacity-85"></div>
+      </div>
       <Navbar />
       <div className="max-w-2xl mx-auto px-6 py-8">
         <div className="mb-8">
@@ -65,9 +70,6 @@ export default function BookingVerification() {
               {loading ? 'Checking...' : 'Verify'}
             </button>
           </div>
-          <p className="text-xs text-gray-400 mt-2">
-            💡 Tip: Scan the QR code with a QR reader to get the booking ID, then paste it here
-          </p>
         </div>
 
         {/* Error */}
