@@ -16,6 +16,7 @@ import {
   updateResourceLocation,
   deleteResourceLocation
 } from '../constants/resourceLocations'
+import campusBg from '../assets/campus.png'
 
 const RESOURCE_NAME_PATTERN = /^[A-Za-z0-9 ]+$/
 const CUSTOM_EQUIPMENT_PREFIX = 'Equipment - '
@@ -178,6 +179,50 @@ export default function Facilities() {
 
   const showToast = (message, type = 'success') => {
     setToast({ show: true, type, message })
+  }
+
+  const escapeCsvValue = (value) => {
+    if (value === null || value === undefined) return ''
+    const normalizedValue = String(value).replace(/\r?\n|\r/g, ' ')
+    if (/[",]/.test(normalizedValue)) {
+      return `"${normalizedValue.replace(/"/g, '""')}"`
+    }
+    return normalizedValue
+  }
+
+  const downloadCatalogCsv = () => {
+    if (resources.length === 0) {
+      showToast('No resources available to export.', 'error')
+      return
+    }
+
+    const headers = ['Name', 'Type', 'Location', 'Capacity', 'Status', 'Availability', 'Description']
+    const rows = resources.map((resource) => [
+      resource.name || '',
+      resource.type || '',
+      resource.location || '',
+      resource.capacity ?? '',
+      resource.status || '',
+      resource.availabilityWindows || '',
+      resource.description || ''
+    ])
+
+    const csvContent = [headers, ...rows]
+      .map((row) => row.map(escapeCsvValue).join(','))
+      .join('\n')
+
+    const blob = new Blob([`\uFEFF${csvContent}`], { type: 'text/csv;charset=utf-8;' })
+    const downloadUrl = URL.createObjectURL(blob)
+    const downloadLink = document.createElement('a')
+    const formattedDate = new Date().toISOString().slice(0, 10)
+
+    downloadLink.href = downloadUrl
+    downloadLink.setAttribute('download', `facilities-catalog-${formattedDate}.csv`)
+    document.body.appendChild(downloadLink)
+    downloadLink.click()
+    document.body.removeChild(downloadLink)
+    URL.revokeObjectURL(downloadUrl)
+    showToast('Facilities catalog CSV downloaded successfully.')
   }
 
   const buildResourcePayload = (resource, overrides = {}) => ({
@@ -672,7 +717,11 @@ export default function Facilities() {
   )
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen relative">
+      <div className="fixed inset-0 -z-10">
+          <img src={campusBg} alt="" className="w-full h-full object-cover" />
+          <div className="absolute inset-0 bg-white bg-opacity-85"></div>
+      </div>
       {toast.show && (
         <div className="fixed right-4 top-4 z-[70] w-full max-w-sm">
           <div
@@ -697,16 +746,25 @@ export default function Facilities() {
             <p className="text-gray-500 text-sm mt-1">Manage bookable resources on campus</p>
           </div>
           {user?.role === 'ADMIN' && (
-            <button onClick={() => {
-              // Refresh options each time the modal opens.
-              setResourceTypes(getAllResourceTypes())
-              setResourceLocations(getAllResourceLocations())
-              setAvailabilityTemplate({ days: [], fromTime: DEFAULT_FROM_TIME, toTime: DEFAULT_TO_TIME })
-              setShowForm(true)
-            }}
-              className="bg-blue-600 text-white px-5 py-2.5 rounded-xl hover:bg-blue-700 text-sm font-medium shadow-sm">
-              + Add Resource
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={downloadCatalogCsv}
+                className="bg-emerald-600 text-white px-4 py-2.5 rounded-xl hover:bg-emerald-700 text-sm font-medium shadow-sm"
+              >
+                Download CSV
+              </button>
+              <button onClick={() => {
+                // Refresh options each time the modal opens.
+                setResourceTypes(getAllResourceTypes())
+                setResourceLocations(getAllResourceLocations())
+                setAvailabilityTemplate({ days: [], fromTime: DEFAULT_FROM_TIME, toTime: DEFAULT_TO_TIME })
+                setShowForm(true)
+              }}
+                className="bg-blue-600 text-white px-5 py-2.5 rounded-xl hover:bg-blue-700 text-sm font-medium shadow-sm">
+                + Add Resource
+              </button>
+            </div>
           )}
         </div>
 
