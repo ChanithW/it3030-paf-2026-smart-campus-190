@@ -103,17 +103,21 @@ public class TicketService {
                 ticket.setResolutionNotes(request.getResolutionNotes());
             }
 
-            if (request.getAssignedToId() != null && !request.getAssignedToId().isEmpty()) {
-                User technician = userRepository.findById(request.getAssignedToId())
-                        .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-                ticket.setAssignedTo(technician);
+            if (request.getAssignedToId() != null) {
+                if (request.getAssignedToId().isEmpty()) {
+                    ticket.setAssignedTo(null);
+                } else {
+                    User technician = userRepository.findById(request.getAssignedToId())
+                            .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+                    ticket.setAssignedTo(technician);
 
-                notificationService.createNotification(
-                        technician,
-                        "You have been assigned to ticket: " + ticket.getCategory(),
-                        "TICKET",
-                        ticket.getId()
-                );
+                    notificationService.createNotification(
+                            technician,
+                            "You have been assigned to ticket: " + ticket.getCategory(),
+                            "TICKET",
+                            ticket.getId()
+                    );
+                }
             }
 
             Ticket saved = ticketRepository.save(ticket);

@@ -103,8 +103,28 @@ export default function Tickets() {
 
   const handleFileChange = (e) => {
     const files = Array.from(e.target.files).slice(0, 3)
-    setSelectedFiles(files)
-    const urls = files.map(f => URL.createObjectURL(f))
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+    const maxSize = 5 * 1024 * 1024 // 5MB
+
+    const validFiles = []
+    const errors = []
+
+    files.forEach(file => {
+      if (!allowedTypes.includes(file.type)) {
+        errors.push(`${file.name}: Invalid file type. Only PNG, JPG, GIF, and WEBP are allowed.`)
+      } else if (file.size > maxSize) {
+        errors.push(`${file.name}: File is too large. Max size is 5MB.`)
+      } else {
+        validFiles.push(file)
+      }
+    })
+
+    if (errors.length > 0) {
+      alert(errors.join('\n'))
+    }
+
+    setSelectedFiles(validFiles)
+    const urls = validFiles.map(f => URL.createObjectURL(f))
     setPreviewUrls(urls)
   }
 
@@ -146,6 +166,21 @@ export default function Tickets() {
       console.error(err)
     } finally {
       setUploading(false)
+    }
+  }
+
+  const handleAssign = async () => {
+    try {
+      const res = await api.patch(`/api/tickets/${selectedTicket.id}/status`, {
+        status: selectedTicket.status,
+        assignedToId: assigneeId || ''
+      })
+      setSelectedTicket(res.data)
+      fetchTickets()
+      alert('Technician assignment updated successfully')
+    } catch (err) {
+      console.error(err)
+      alert(err.response?.data?.message || 'Failed to update technician assignment')
     }
   }
 
@@ -306,7 +341,6 @@ export default function Tickets() {
     setIsEditing(false)
     setAssigneeId(ticket.assignedTo?.id || '')
     setSelectedTicket(ticket)
-    setAssigneeId(ticket.assignedTo?.id || '')
     fetchComments(ticket.id)
   }
 
@@ -700,16 +734,24 @@ export default function Tickets() {
               <div className="flex gap-2 mb-6 flex-wrap bg-gray-50 p-4 rounded-xl">
                 <div className="w-full mb-3">
                   <p className="text-xs text-gray-500 mb-2 font-medium">Assign To:</p>
-                  <select
-                    value={assigneeId}
-                    onChange={e => setAssigneeId(e.target.value)}
-                    className="w-full text-xs bg-white border border-gray-200 rounded-lg p-2 focus:outline-none focus:ring-1 focus:ring-orange-100"
-                  >
-                    <option value="">Unassigned</option>
-                    {technicians.map(tech => (
-                      <option key={tech.id} value={tech.id}>{tech.name}</option>
-                    ))}
-                  </select>
+                  <div className="flex gap-2">
+                    <select
+                      value={assigneeId}
+                      onChange={e => setAssigneeId(e.target.value)}
+                      className="flex-1 text-xs bg-white border border-gray-200 rounded-lg p-2 focus:outline-none focus:ring-1 focus:ring-orange-100"
+                    >
+                      <option value="">Unassigned</option>
+                      {technicians.map(tech => (
+                        <option key={tech.id} value={tech.id}>{tech.name}</option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={handleAssign}
+                      className="text-xs px-3 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition font-medium"
+                    >
+                      Assign
+                    </button>
+                  </div>
                 </div>
                 <p className="text-xs text-gray-500 w-full font-medium">Update Status:</p>
                 {['IN_PROGRESS', 'RESOLVED', 'CLOSED', 'REJECTED'].map(s => (
