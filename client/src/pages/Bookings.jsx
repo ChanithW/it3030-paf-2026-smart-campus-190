@@ -772,7 +772,7 @@ export default function Bookings() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl p-8 w-full max-w-sm shadow-2xl text-center">
             <h2 className="text-xl font-bold text-gray-800 mb-1">Booking QR Code</h2>
-            <p className="text-gray-500 text-sm mb-6">Show this at check-in</p>
+            <p className="text-gray-500 text-sm mb-6">Show this at the check-in</p>
 
             <div className="flex justify-center mb-6 p-4 bg-gray-50 rounded-2xl">
               <QRCode
