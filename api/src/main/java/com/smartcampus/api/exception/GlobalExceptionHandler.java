@@ -24,6 +24,11 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.CONFLICT, ex.getMessage());
     }
 
+    @ExceptionHandler(DuplicateResourceNameException.class)
+    public ResponseEntity<Map<String, Object>> handleDuplicateResourceName(DuplicateResourceNameException ex) {
+        return buildResponse(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
     @ExceptionHandler(UnauthorizedException.class)
     public ResponseEntity<Map<String, Object>> handleUnauthorized(UnauthorizedException ex) {
         return buildResponse(HttpStatus.FORBIDDEN, ex.getMessage());
