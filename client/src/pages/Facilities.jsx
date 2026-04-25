@@ -482,7 +482,7 @@ export default function Facilities() {
     e.preventDefault()
     setFormError('')
 
-    // Validate required fields
+    // Validate core resource name rules first: required, allowed characters, and uniqueness.
     const trimmedName = form.name.trim()
     if (!trimmedName) {
       setFormError('Resource name is required')
@@ -505,6 +505,7 @@ export default function Facilities() {
       return
     }
 
+    // Validate type selection and ensure custom "Other" type input is present and clean.
     if (!selectedType || selectedType === '') {
       setFormError('Resource type is required')
       return
@@ -520,6 +521,7 @@ export default function Facilities() {
       return
     }
 
+    // Capacity is mandatory for built-in resource types (unless editing an existing no-capacity record).
     const shouldRequireCapacity =
       isBuiltInResourceType && (!editingResource || editingResource.capacity !== null)
 
@@ -528,12 +530,13 @@ export default function Facilities() {
       return
     }
 
-    // Validate capacity only when provided.
+    // If a capacity value is provided, it must be numeric and greater than zero.
     if (form.capacity !== '' && (isNaN(form.capacity) || parseFloat(form.capacity) <= 0)) {
       setFormError('Capacity must be a valid positive number')
       return
     }
 
+    // Validate status and location, including custom "Other" location rules.
     if (!form.status || form.status === '') {
       setFormError('Status is required')
       return
@@ -554,6 +557,7 @@ export default function Facilities() {
       return
     }
 
+    // Validate availability template before serializing it into backend format.
     const normalizedFromTime = availabilityTemplate.fromTime || DEFAULT_FROM_TIME
     const normalizedToTime = availabilityTemplate.toTime || DEFAULT_TO_TIME
 
@@ -568,6 +572,7 @@ export default function Facilities() {
     }
 
     try {
+      // Build a normalized payload so backend receives clean values.
       let payload = {
         ...form,
         name: trimmedName,
