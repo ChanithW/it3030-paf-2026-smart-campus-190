@@ -15,6 +15,8 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
+
 import java.util.List;
 
 @RestController
@@ -39,6 +41,26 @@ public class BookingController {
         return ResponseEntity.ok(bookingService.getBookingById(id));
     }
 
+    @GetMapping("/is-available")
+    public ResponseEntity<Boolean> isResourceAvailable(
+            @RequestParam String resourceId,
+            @RequestParam String startTime,
+            @RequestParam String endTime) {
+        LocalDateTime start = LocalDateTime.parse(startTime);
+        LocalDateTime end = LocalDateTime.parse(endTime);
+        return ResponseEntity.ok(bookingService.isResourceAvailable(resourceId, start, end));
+    }
+
+    @GetMapping("/remaining-capacity")
+    public ResponseEntity<Integer> getRemainingCapacity(
+            @RequestParam String resourceId,
+            @RequestParam String startTime,
+            @RequestParam String endTime) {
+        LocalDateTime start = LocalDateTime.parse(startTime);
+        LocalDateTime end = LocalDateTime.parse(endTime);
+        return ResponseEntity.ok(bookingService.getRemainingCapacity(resourceId, start, end));
+    }
+
     @GetMapping("/my")
     public ResponseEntity<List<Booking>> getMyBookings(
             @AuthenticationPrincipal OAuth2User principal) {
@@ -55,6 +77,15 @@ public class BookingController {
                 .body(bookingService.createBooking(request, user));
     }
 
+    @PutMapping("/{id}")
+    public ResponseEntity<Booking> updateBooking(
+            @PathVariable String id,
+            @Valid @RequestBody BookingRequest request,
+            @AuthenticationPrincipal OAuth2User principal) {
+        User user = userService.getUserByEmail(principal.getAttribute("email"));
+        return ResponseEntity.ok(bookingService.updateBooking(id, request, user));
+    }
+
     @PatchMapping("/{id}/status")
     public ResponseEntity<Booking> updateBookingStatus(
             @PathVariable String id,
@@ -68,5 +99,14 @@ public class BookingController {
             @AuthenticationPrincipal OAuth2User principal) {
         User user = userService.getUserByEmail(principal.getAttribute("email"));
         return ResponseEntity.ok(bookingService.cancelBooking(id, user));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteBooking(
+            @PathVariable String id,
+            @AuthenticationPrincipal OAuth2User principal) {
+        User user = userService.getUserByEmail(principal.getAttribute("email"));
+        bookingService.deleteBooking(id, user);
+        return ResponseEntity.noContent().build();
     }
 }

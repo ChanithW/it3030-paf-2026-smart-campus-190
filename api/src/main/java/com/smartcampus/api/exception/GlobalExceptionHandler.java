@@ -24,20 +24,39 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.CONFLICT, ex.getMessage());
     }
 
+    @ExceptionHandler(DuplicateResourceNameException.class)
+    public ResponseEntity<Map<String, Object>> handleDuplicateResourceName(DuplicateResourceNameException ex) {
+        return buildResponse(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
     @ExceptionHandler(UnauthorizedException.class)
     public ResponseEntity<Map<String, Object>> handleUnauthorized(UnauthorizedException ex) {
         return buildResponse(HttpStatus.FORBIDDEN, ex.getMessage());
     }
 
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<Map<String, Object>> handleIllegalState(IllegalStateException ex) {
+        return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage());
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, Object>> handleValidationErrors(MethodArgumentNotValidException ex) {
         Map<String, String> errors = new HashMap<>();
+        
+        // Capture field-level errors
         for (FieldError error : ex.getBindingResult().getFieldErrors()) {
             errors.put(error.getField(), error.getDefaultMessage());
         }
+        
+        // Capture object-level errors (e.g., from @AssertTrue methods)
+        ex.getBindingResult().getGlobalErrors().forEach(error -> {
+            errors.put(error.getObjectName(), error.getDefaultMessage());
+        });
+        
         Map<String, Object> response = new HashMap<>();
         response.put("timestamp", LocalDateTime.now());
         response.put("status", HttpStatus.BAD_REQUEST.value());
+        response.put("message", errors.isEmpty() ? "Validation failed" : String.join(", ", errors.values()));
         response.put("errors", errors);
         return ResponseEntity.badRequest().body(response);
     }

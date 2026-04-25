@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import Navbar from '../components/Navbar'
 import api from '../api/axios'
+import campusBg from '../assets/campus.png'
 
 export default function NotificationPreferences() {
-  const { user } = useAuth()
+  const { user, refreshUser } = useAuth()
   const [preferences, setPreferences] = useState({
     bookingApproved: true,
     bookingRejected: true,
@@ -30,6 +31,7 @@ export default function NotificationPreferences() {
       await api.patch('/api/auth/users/preferences', {
         preferences: JSON.stringify(preferences)
       })
+      await refreshUser()
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
     } catch (err) {
@@ -63,7 +65,11 @@ export default function NotificationPreferences() {
   ]
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen relative">
+      <div className="fixed inset-0 -z-10">
+        <img src={campusBg} alt="" className="w-full h-full object-cover" />
+        <div className="absolute inset-0 bg-white bg-opacity-85"></div>
+      </div>
       <Navbar />
       <div className="max-w-2xl mx-auto px-6 py-8">
         <div className="mb-6">

@@ -25,6 +25,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/api/tickets")
@@ -34,14 +35,18 @@ public class TicketController {
     private final TicketService ticketService;
     private final UserService userService;
     private final String uploadDir = "uploads/";
+    private static final List<String> ALLOWED_IMAGE_TYPES = List.of(
+            "image/jpeg", "image/png", "image/gif", "image/webp"
+    );
 
     @GetMapping
     public ResponseEntity<List<Ticket>> getAllTickets(
-            @RequestParam(required = false) TicketStatus status) {
+            @RequestParam(required = false) TicketStatus status,
+            @RequestParam(defaultValue = "false") boolean includeHidden) {
         if (status != null) {
             return ResponseEntity.ok(ticketService.getTicketsByStatus(status));
         }
-        return ResponseEntity.ok(ticketService.getAllTickets());
+        return ResponseEntity.ok(ticketService.getAllTickets(includeHidden));
     }
 
     @GetMapping("/{id}")
@@ -86,7 +91,14 @@ public class TicketController {
 
             int count = 0;
             for (MultipartFile file : files) {
-                if (file.isEmpty() || count >= 3) break;
+                if (file.isEmpty() || count >= 3) continue;
+
+                String contentType = file.getContentType();
+                if (contentType == null || !ALLOWED_IMAGE_TYPES.contains(contentType.toLowerCase())) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                            "Invalid file type. Only JPG, PNG, GIF, and WEBP images are allowed.");
+                }
+
                 String originalFilename = file.getOriginalFilename();
                 String extension = originalFilename != null
                         ? originalFilename.substring(originalFilename.lastIndexOf('.'))
@@ -153,6 +165,24 @@ public class TicketController {
             @AuthenticationPrincipal OAuth2User principal) {
         User user = userService.getUserByEmail(principal.getAttribute("email"));
         ticketService.deleteComment(commentId, user);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<Ticket> updateTicket(
+            @PathVariable String id,
+            @Valid @RequestBody TicketRequest request,
+            @AuthenticationPrincipal OAuth2User principal) {
+        User user = userService.getUserByEmail(principal.getAttribute("email"));
+        return ResponseEntity.ok(ticketService.updateTicket(id, request, user));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteTicket(
+            @PathVariable String id,
+            @AuthenticationPrincipal OAuth2User principal) {
+        User user = userService.getUserByEmail(principal.getAttribute("email"));
+        ticketService.deleteTicket(id, user);
         return ResponseEntity.noContent().build();
     }
 }

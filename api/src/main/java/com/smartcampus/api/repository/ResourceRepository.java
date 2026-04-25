@@ -10,4 +10,6 @@ public interface ResourceRepository extends JpaRepository<Resource, String> {
     List<Resource> findByStatus(ResourceStatus status);
     List<Resource> findByLocation(String location);
     List<Resource> findByTypeAndStatus(String type, ResourceStatus status);
+    boolean existsByNameIgnoreCase(String name);
+    boolean existsByNameIgnoreCaseAndIdNot(String name, String id);
 }

@@ -15,6 +15,7 @@ import com.smartcampus.api.repository.TicketRepository;
 import com.smartcampus.api.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -27,16 +28,25 @@ public class TicketService {
     private final CommentRepository commentRepository;
     private final NotificationService notificationService;
 
-    public List<Ticket> getAllTickets() {
-        return ticketRepository.findAll();
+    public List<Ticket> getAllTickets(boolean includeHidden) {
+        List<Ticket> tickets = ticketRepository.findAllByOrderByCreatedAtDesc();
+        if (includeHidden) {
+            return tickets;
+        }
+        return tickets.stream()
+                .filter(t -> !t.isHiddenByAdmin())
+                .collect(java.util.stream.Collectors.toList());
     }
 
     public List<Ticket> getTicketsByUser(String userId) {
-        return ticketRepository.findByUserId(userId);
+        return ticketRepository.findByUserIdOrderByCreatedAtDesc(userId)
+                .stream()
+                .filter(t -> !t.isHiddenByAdmin())
+                .collect(java.util.stream.Collectors.toList());
     }
 
     public List<Ticket> getTicketsByStatus(TicketStatus status) {
-        return ticketRepository.findByStatus(status);
+        return ticketRepository.findByStatusOrderByCreatedAtDesc(status);
     }
 
     public Ticket getTicketById(String id) {
@@ -78,64 +88,75 @@ public class TicketService {
         return saved;
     }
 
+    @Transactional
     public Ticket updateTicketStatus(String id, StatusUpdateRequest request) {
-        Ticket ticket = getTicketById(id);
-        TicketStatus newStatus = TicketStatus.valueOf(request.getStatus());
-        ticket.setStatus(newStatus);
+        try {
+            Ticket ticket = getTicketById(id);
+            TicketStatus newStatus = TicketStatus.valueOf(request.getStatus());
+            ticket.setStatus(newStatus);
 
-        if (request.getReason() != null) {
-            ticket.setRejectionReason(request.getReason());
+            if (request.getReason() != null) {
+                ticket.setRejectionReason(request.getReason());
+            }
+
+            if (request.getResolutionNotes() != null) {
+                ticket.setResolutionNotes(request.getResolutionNotes());
+            }
+
+            if (request.getAssignedToId() != null) {
+                if (request.getAssignedToId().isEmpty()) {
+                    ticket.setAssignedTo(null);
+                } else {
+                    User technician = userRepository.findById(request.getAssignedToId())
+                            .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+                    ticket.setAssignedTo(technician);
+
+                    notificationService.createNotification(
+                            technician,
+                            "You have been assigned to ticket: " + ticket.getCategory(),
+                            "TICKET",
+                            ticket.getId()
+                    );
+                }
+            }
+
+            Ticket saved = ticketRepository.save(ticket);
+            User ticketOwner = ticket.getUser();
+
+            switch (newStatus) {
+                case IN_PROGRESS -> notificationService.createNotification(
+                        ticketOwner,
+                        "Your ticket '" + ticket.getCategory() + "' is now IN PROGRESS.",
+                        "TICKET",
+                        saved.getId()
+                );
+                case RESOLVED -> notificationService.createNotification(
+                        ticketOwner,
+                        "Your ticket '" + ticket.getCategory() + "' has been RESOLVED!",
+                        "TICKET",
+                        saved.getId()
+                );
+                case CLOSED -> notificationService.createNotification(
+                        ticketOwner,
+                        "Your ticket '" + ticket.getCategory() + "' has been CLOSED.",
+                        "TICKET",
+                        saved.getId()
+                );
+                case REJECTED -> notificationService.createNotification(
+                        ticketOwner,
+                        "Your ticket '" + ticket.getCategory() + "' has been REJECTED.",
+                        "TICKET",
+                        saved.getId()
+                );
+                default -> {}
+            }
+
+            return saved;
+        } catch (Exception e) {
+            System.err.println("Error updating ticket status: " + e.getMessage());
+            e.printStackTrace();
+            throw e;
         }
-
-        if (request.getResolutionNotes() != null) {
-            ticket.setResolutionNotes(request.getResolutionNotes());
-        }
-
-        if (request.getAssignedToId() != null) {
-            User technician = userRepository.findById(request.getAssignedToId())
-                    .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-            ticket.setAssignedTo(technician);
-
-            notificationService.createNotification(
-                    technician,
-                    "You have been assigned to ticket: " + ticket.getCategory(),
-                    "TICKET",
-                    ticket.getId()
-            );
-        }
-
-        Ticket saved = ticketRepository.save(ticket);
-        User ticketOwner = ticket.getUser();
-
-        switch (newStatus) {
-            case IN_PROGRESS -> notificationService.createNotification(
-                    ticketOwner,
-                    "Your ticket '" + ticket.getCategory() + "' is now IN PROGRESS.",
-                    "TICKET",
-                    saved.getId()
-            );
-            case RESOLVED -> notificationService.createNotification(
-                    ticketOwner,
-                    "Your ticket '" + ticket.getCategory() + "' has been RESOLVED!",
-                    "TICKET",
-                    saved.getId()
-            );
-            case CLOSED -> notificationService.createNotification(
-                    ticketOwner,
-                    "Your ticket '" + ticket.getCategory() + "' has been CLOSED.",
-                    "TICKET",
-                    saved.getId()
-            );
-            case REJECTED -> notificationService.createNotification(
-                    ticketOwner,
-                    "Your ticket '" + ticket.getCategory() + "' has been REJECTED.",
-                    "TICKET",
-                    saved.getId()
-            );
-            default -> {}
-        }
-
-        return saved;
     }
 
     public Comment addComment(String ticketId, CommentRequest request, User user) {
@@ -190,5 +211,57 @@ public class TicketService {
 
     public Ticket saveTicket(Ticket ticket) {
         return ticketRepository.save(ticket);
+    }
+
+    public Ticket updateTicket(String id, TicketRequest request, User user) {
+        Ticket ticket = getTicketById(id);
+
+        if (!ticket.getUser().getId().equals(user.getId())) {
+            throw new UnauthorizedException("You are not authorized to edit this ticket");
+        }
+
+        if (ticket.getStatus() != TicketStatus.OPEN) {
+            throw new IllegalStateException("You can only edit tickets that are still OPEN");
+        }
+
+        ticket.setCategory(request.getCategory());
+        ticket.setDescription(request.getDescription());
+        ticket.setLocation(request.getLocation());
+        ticket.setContactDetails(request.getContactDetails());
+
+        Ticket saved = ticketRepository.save(ticket);
+
+        // Notify Admins
+        userRepository.findAll().stream()
+                .filter(u -> u.getRole() == Role.ADMIN)
+                .forEach(admin -> notificationService.createNotification(
+                        admin,
+                        "Ticket updated by " + user.getName() + ": " + ticket.getCategory(),
+                        "TICKET",
+                        saved.getId()
+                ));
+
+        return saved;
+    }
+
+    @Transactional
+    public void deleteTicket(String id, User user) {
+        Ticket ticket = getTicketById(id);
+        
+        boolean isOwner = ticket.getUser().getId().equals(user.getId());
+        boolean isAdmin = user.getRole() == Role.ADMIN;
+        
+        // Authorization check
+        if (!((isOwner && ticket.getStatus() == TicketStatus.OPEN) || 
+              (isAdmin && (ticket.getStatus() == TicketStatus.CLOSED || ticket.getStatus() == TicketStatus.REJECTED)))) {
+            throw new UnauthorizedException("You are not authorized to delete/withdraw this ticket in its current status");
+        }
+
+        List<Comment> comments = commentRepository.findByTicketId(id);
+        commentRepository.deleteAll(comments);
+        
+        // Soft delete for everyone - record remains in DB for CSV/Audit
+        ticket.setHiddenByAdmin(true);
+        ticketRepository.save(ticket);
     }
 }

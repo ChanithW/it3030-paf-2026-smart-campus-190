@@ -14,6 +14,15 @@ export const AuthProvider = ({ children }) => {
       .finally(() => setLoading(false));
   }, []);
 
+  const refreshUser = async () => {
+    try {
+      const res = await api.get('/api/auth/me')
+      setUser(res.data)
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
   const login = () => {
     window.location.href = 'http://localhost:8080/oauth2/authorization/google';
   };
@@ -23,7 +32,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );
