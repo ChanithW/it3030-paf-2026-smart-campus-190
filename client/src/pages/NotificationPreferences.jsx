@@ -5,7 +5,7 @@ import api from '../api/axios'
 import campusBg from '../assets/campus.png'
 
 export default function NotificationPreferences() {
-  const { user } = useAuth()
+  const { user, refreshUser } = useAuth()
   const [preferences, setPreferences] = useState({
     bookingApproved: true,
     bookingRejected: true,
@@ -31,6 +31,7 @@ export default function NotificationPreferences() {
       await api.patch('/api/auth/users/preferences', {
         preferences: JSON.stringify(preferences)
       })
+      await refreshUser()
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
     } catch (err) {
