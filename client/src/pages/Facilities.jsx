@@ -449,6 +449,17 @@ export default function Facilities() {
       return
     }
 
+    const isDuplicateName = resources.some(
+      (resource) =>
+        resource.name?.trim().toLowerCase() === trimmedName.toLowerCase() &&
+        resource.id !== editingResource?.id
+    )
+
+    if (isDuplicateName) {
+      setFormError('A resource with this name already exists. Please use a unique name')
+      return
+    }
+
     if (!selectedType || selectedType === '') {
       setFormError('Resource type is required')
       return
@@ -553,7 +564,12 @@ export default function Facilities() {
       resetForm()
     } catch (err) {
       console.error(err)
-      setFormError('Failed to save resource. Please try again.')
+      const apiErrorMessage = err?.response?.data?.message
+      if (apiErrorMessage && typeof apiErrorMessage === 'string') {
+        setFormError(apiErrorMessage)
+      } else {
+        setFormError('Failed to save resource. Please try again.')
+      }
       showToast('Failed to save resource.', 'error')
     }
   }
