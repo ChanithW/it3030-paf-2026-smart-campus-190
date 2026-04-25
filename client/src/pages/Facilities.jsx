@@ -190,13 +190,15 @@ export default function Facilities() {
   }
 
   const downloadCatalogCsv = () => {
-    if (resources.length === 0) {
-      showToast('No resources available to export.', 'error')
+    const exportRows = filtered
+
+    if (exportRows.length === 0) {
+      showToast('No filtered resources available to export.', 'error')
       return
     }
 
     const headers = ['Name', 'Type', 'Location', 'Capacity', 'Status', 'Availability', 'Description']
-    const rows = resources.map((resource) => [
+    const rows = exportRows.map((resource) => [
       resource.name || '',
       resource.type || '',
       resource.location || '',
@@ -221,7 +223,7 @@ export default function Facilities() {
     downloadLink.click()
     document.body.removeChild(downloadLink)
     URL.revokeObjectURL(downloadUrl)
-    showToast('Facilities catalog CSV downloaded successfully.')
+    showToast(`Downloaded ${exportRows.length} filtered resource(s) as CSV.`)
   }
 
   const buildResourcePayload = (resource, overrides = {}) => ({
